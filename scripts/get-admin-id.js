@@ -1,0 +1,6 @@
+const { PrismaClient } = require('@prisma/client')
+const p = new PrismaClient()
+p.user.findFirst({ where: { role: 'ADMIN' } })
+  .then(u => console.log('ADMIN_ID=' + u.id))
+  .catch(e => console.error(e))
+  .finally(() => p.$disconnect())

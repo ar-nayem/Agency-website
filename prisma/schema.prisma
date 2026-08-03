@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String
+  password    String
+  role        String   @default("AGENT")
+  isActive    Boolean  @default(true)
+  phone       String?
+  wechat      String?
+  avatar      String?
+  bio         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  students        Student[]
+  uploadedDocs    Document[]      @relation("UploadedBy")
+  activityLogs    ActivityLog[]
+  sentMessages    Message[]       @relation("SentBy")
+  receivedMessages Message[]      @relation("ReceivedBy")
+  organization    OrganizationProfile?
+}
+
+model Student {
+  id                        String   @id @default(uuid())
+  serialNumber              String?  @unique
+  
+  // Personal Information
+  passportFamilyName        String
+  givenName                 String
+  fullName                  String
+  photo                     String?
+  gender                    String
+  chineseName               String?
+  maritalStatus             String
+  religion                  String
+  occupation                String
+  employerInstitution       String?
+  nationality               String
+  dateOfBirth               String
+  yearsInHomeCountry        String?
+  countryOfBirth            String
+  wechat                    String?
+  placeOfBirth              String
+  chineseDescent            String   @default("No")
+  currentlyInChina          String   @default("No")
+  
+  // Correspondence Address
+  homeAddress               String?
+  detailedAddress           String
+  cityProvince              String
+  country                   String
+  zipcode                   String
+  phoneMobile               String
+  mainEmail                 String
+  
+  // Passport & Visa
+  passportNo                String
+  passportExpiryDate        String
+  oldPassportNo             String?
+  oldPassportExpiry         String?
+  
+  // China Study Experience
+  studiedInChina            String   @default("No")
+  visaType                  String?
+  chinaInstitution          String?
+  visaExpiryDate            String?
+  studyInChinaFrom          String?
+  studyInChinaTo            String?
+  
+  // Program applied for
+  programApplied            String?
+  
+  status                    String   @default("PENDING")
+  notes                     String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  agentId         String
+  agent           User            @relation(fields: [agentId], references: [id])
+  documents       Document[]
+  educationHistory EducationHistory[]
+  workExperience   WorkExperience[]
+  familyMembers    FamilyMember[]
+  financialSponsors FinancialSponsor[]
+  messages         Message[]
+}
+
+model EducationHistory {
+  id           String   @id @default(uuid())
+  degree       String
+  schoolName   String
+  yearFrom     String
+  yearTo       String
+  contactPerson String?
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model WorkExperience {
+  id           String   @id @default(uuid())
+  yearFrom     String
+  yearTo       String
+  company      String
+  occupation   String
+  reference    String?
+  phone        String?
+  email        String?
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model FamilyMember {
+  id           String   @id @default(uuid())
+  name         String
+  relationship String
+  nationality  String
+  employer     String?
+  occupation   String?
+  phone        String?
+  email        String?
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model FinancialSponsor {
+  id           String   @id @default(uuid())
+  name         String
+  relationship String
+  nationality  String
+  employer     String?
+  occupation   String?
+  phone        String?
+  email        String?
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  type         String
+  category     String   @default("OTHER")
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation("UploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model Message {
+  id          String    @id @default(uuid())
+  content     String
+  senderId    String
+  sender      User      @relation("SentBy", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    User      @relation("ReceivedBy", fields: [receiverId], references: [id])
+  studentId   String?
+  student     Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+model DocumentRequirement {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  label       String
+  description String?
+  accept      String   @default(".pdf,image/*")
+  type        String   @default("PDF")
+  maxSize     String?
+  isRequired  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model FieldRequirement {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  label       String
+  section     String
+  isRequired  Boolean  @default(true)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model OrganizationProfile {
+  id             String   @id @default(uuid())
+  name           String
+  logo           String?
+  email          String?
+  phone          String?
+  wechat         String?
+  address        String?
+  website        String?
+  description    String?
+  welcomeMessage String?
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  action    String
+  details   String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}

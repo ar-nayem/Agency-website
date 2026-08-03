@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env*
+!.env.example
+public/uploads/
+prisma/dev.db
+*.tsbuildinfo
+.DS_Store
