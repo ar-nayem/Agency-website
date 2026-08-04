@@ -29,7 +29,9 @@ function StudentsPageInner() {
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [status, setStatus] = useState(searchParams.get('status') || '')
   const [agentId, setAgentId] = useState(searchParams.get('agentId') || '')
+  const [adminId, setAdminId] = useState(searchParams.get('adminId') || '')
   const [agents, setAgents] = useState<any[]>([])
+  const [admins, setAdmins] = useState<any[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
 
@@ -37,13 +39,16 @@ function StudentsPageInner() {
     if (session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER') {
       fetch('/api/users')
         .then(res => res.json())
-        .then(data => setAgents(data.filter((u: any) => u.role === 'AGENT')))
+        .then(data => {
+          setAgents(data.filter((u: any) => u.role === 'AGENT'))
+          setAdmins(data.filter((u: any) => u.role === 'ADMIN' || u.role === 'OWNER'))
+        })
     }
   }, [session])
 
   useEffect(() => {
     fetchStudents()
-  }, [search, status, agentId, session])
+  }, [search, status, agentId, adminId, session])
 
   async function fetchStudents() {
     if (!session?.user) return
@@ -52,8 +57,8 @@ function StudentsPageInner() {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       if (status) params.set('status', status)
-      if (agentId && isAdmin) params.set('agentId', agentId)
-      
+      if (isAdmin && (agentId || adminId)) params.set('agentId', agentId || adminId)
+
       const res = await fetch(`/api/students?${params}`)
       const data = await res.json()
       setStudents(data)
@@ -190,12 +195,28 @@ function StudentsPageInner() {
               <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('dashboard.agent')}</label>
               <select
                 value={agentId}
-                onChange={(e) => setAgentId(e.target.value)}
+                onChange={(e) => { setAgentId(e.target.value); setAdminId('') }}
                 className="px-3 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-muted/50"
               >
                 <option value="">{t('students.allAgents')}</option>
                 {agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>{agent.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {isAdmin && (
+            <div>
+              <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('students.filterByAdmin')}</label>
+              <select
+                value={adminId}
+                onChange={(e) => { setAdminId(e.target.value); setAgentId('') }}
+                className="px-3 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-muted/50"
+              >
+                <option value="">{t('students.allAdmins')}</option>
+                {admins.map((admin) => (
+                  <option key={admin.id} value={admin.id}>{admin.name}</option>
                 ))}
               </select>
             </div>

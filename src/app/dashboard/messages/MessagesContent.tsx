@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
-  MessageSquare, Send, ArrowLeft, Loader2, FileText, Paperclip, Smile, X, Download, FileVideo
+  MessageSquare, Send, ArrowLeft, Loader2, FileText, Paperclip, Smile, X, Download, FileVideo, Archive, ChevronDown, ChevronUp
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -22,7 +22,7 @@ const EMOJIS = [
   '📞', '✈️', '🎓', '🏫', '💰', '⏰', '📅', '🇧🇩', '🇨🇳', '👨‍💼',
 ]
 
-type AttachmentType = 'IMAGE' | 'VIDEO' | 'PDF'
+type AttachmentType = 'IMAGE' | 'VIDEO' | 'PDF' | 'ZIP'
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -99,6 +99,10 @@ function MessageAttachmentView({
   size?: number | null
   t: (path: string) => string
 }) {
+  const [expanded, setExpanded] = useState(false)
+  const [entries, setEntries] = useState<string[] | null>(null)
+  const [loadingZip, setLoadingZip] = useState(false)
+
   if (type === 'IMAGE') {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" download={name || undefined}>
@@ -111,6 +115,73 @@ function MessageAttachmentView({
       <video src={url} controls className="max-w-full max-h-64 w-full bg-black" />
     )
   }
+
+  if (type === 'ZIP') {
+    const toggleZip = async () => {
+      if (expanded) { setExpanded(false); return }
+      setExpanded(true)
+      if (entries) return
+      setLoadingZip(true)
+      try {
+        const res = await fetch(url)
+        const blob = await res.arrayBuffer()
+        const { default: JSZip } = await import('jszip')
+        const zip = await JSZip.loadAsync(blob)
+        const names = Object.keys(zip.files).filter(n => !zip.files[n].dir).sort()
+        setEntries(names)
+      } catch {
+        setEntries([])
+      } finally {
+        setLoadingZip(false)
+      }
+    }
+    return (
+      <div>
+        <div className="flex items-center gap-2.5 px-3 py-2.5">
+          <Archive className="w-8 h-8 shrink-0 opacity-80" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate">{name || 'Archive.zip'}</p>
+            {typeof size === 'number' && <p className="text-xs opacity-70">{formatFileSize(size)}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={toggleZip}
+            title={expanded ? t('messages.hideContents') : t('messages.viewContents')}
+            className="p-1 rounded-md hover:bg-black/10 transition-colors shrink-0"
+          >
+            {expanded ? <ChevronUp className="w-4 h-4 opacity-70" /> : <ChevronDown className="w-4 h-4 opacity-70" />}
+          </button>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={name || undefined}
+            title={t('messages.downloadFile')}
+            className="p-1 rounded-md hover:bg-black/10 transition-colors shrink-0"
+          >
+            <Download className="w-4 h-4 opacity-70" />
+          </a>
+        </div>
+        {expanded && (
+          <div className="border-t border-black/10 px-3 py-2 max-h-40 overflow-y-auto">
+            {loadingZip ? (
+              <p className="text-xs opacity-70">{t('messages.loadingContents')}</p>
+            ) : entries && entries.length > 0 ? (
+              <>
+                <p className="text-[11px] opacity-60 mb-1">{entries.length} {t('messages.filesInZip')}</p>
+                {entries.map(n => (
+                  <p key={n} className="text-xs opacity-80 truncate py-0.5 font-mono">{n}</p>
+                ))}
+              </>
+            ) : (
+              <p className="text-xs opacity-70">—</p>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <a
       href={url}
@@ -182,6 +253,12 @@ export default function MessagesContent() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
+
+  function roleLabel(role: string) {
+    if (role === 'OWNER') return t('common.roleOwner')
+    if (role === 'ADMIN') return t('common.roleAdmin')
+    return t('common.roleAgent')
+  }
 
   useEffect(() => {
     fetchConversations()
@@ -329,10 +406,13 @@ export default function MessagesContent() {
     }
   }
 
+  const ZIP_TYPES = ['application/zip', 'application/x-zip-compressed', 'application/x-zip', 'multipart/x-zip']
+
   function attachmentTypeOf(file: File): AttachmentType | null {
     if (file.type.startsWith('image/')) return 'IMAGE'
     if (file.type.startsWith('video/')) return 'VIDEO'
     if (file.type === 'application/pdf') return 'PDF'
+    if (ZIP_TYPES.includes(file.type) || file.name.toLowerCase().endsWith('.zip')) return 'ZIP'
     return null
   }
 
@@ -345,13 +425,13 @@ export default function MessagesContent() {
       toast.error(t('messages.unsupportedFileType'))
       return
     }
-    if (file.size > 20 * 1024 * 1024) {
+    if (file.size > 30 * 1024 * 1024) {
       toast.error(t('messages.fileTooLarge'))
       return
     }
     if (attachPreview) URL.revokeObjectURL(attachPreview)
     setAttachFile(file)
-    setAttachPreview(type === 'PDF' ? null : URL.createObjectURL(file))
+    setAttachPreview(type === 'IMAGE' || type === 'VIDEO' ? URL.createObjectURL(file) : null)
   }
 
   function removeAttachment() {
@@ -477,7 +557,7 @@ export default function MessagesContent() {
                 >
                   <option value="">{t('messages.chooseRecipient')}</option>
                   {agents.map(a => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.role})</option>
+                    <option key={a.id} value={a.id}>{a.name} ({roleLabel(a.role)})</option>
                   ))}
                 </select>
               </div>
@@ -562,7 +642,7 @@ export default function MessagesContent() {
                   <p className="text-xs text-muted-foreground">
                     {activeConversation ? (
                       <>
-                        {activeConversation.partner.role}
+                        {roleLabel(activeConversation.partner.role)}
                         {activeConversation.student && (
                           <span> · {activeConversation.student.fullName} <span className="font-mono text-indigo-600 font-semibold">[{activeConversation.student.serialNumber || t('messages.noSerialShort')}]</span></span>
                         )}
@@ -657,6 +737,9 @@ export default function MessagesContent() {
                     {attachmentTypeOf(attachFile) === 'PDF' && (
                       <FileText className="w-10 h-10 shrink-0 text-rose-500" />
                     )}
+                    {attachmentTypeOf(attachFile) === 'ZIP' && (
+                      <Archive className="w-10 h-10 shrink-0 text-amber-500" />
+                    )}
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-foreground truncate max-w-[12rem]">{attachFile.name}</p>
                       <p className="text-[11px] text-muted-foreground">{formatFileSize(attachFile.size)}</p>
@@ -690,7 +773,7 @@ export default function MessagesContent() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*,video/*,application/pdf"
+                  accept="image/*,video/*,application/pdf,.zip,application/zip,application/x-zip-compressed"
                   className="hidden"
                   onChange={handleFileSelect}
                 />

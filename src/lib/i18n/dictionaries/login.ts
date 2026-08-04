@@ -1,5 +1,5 @@
 export const en = {
-  title: 'GLORIE Portal',
+  title: 'Chengdu Dream Fly Edu',
   subtitle: 'Student Application Management',
   emailOrUsername: 'Email or Username',
   emailPlaceholder: 'Enter your email or username',
@@ -11,11 +11,11 @@ export const en = {
   invalidCredentials: 'Invalid email/username or password',
   somethingWrong: 'Something went wrong',
   contactSupport: 'Contact Support',
-  footer: 'GLORIE Student Portal v1.0',
+  footer: 'Chengdu Dream Fly Edu Student Portal v1.0',
 }
 
 export const zh = {
-  title: 'GLORIE 门户',
+  title: '成都追梦飞教育',
   subtitle: '学生申请管理系统',
   emailOrUsername: '邮箱或用户名',
   emailPlaceholder: '请输入邮箱或用户名',
@@ -27,5 +27,5 @@ export const zh = {
   invalidCredentials: '邮箱/用户名或密码错误',
   somethingWrong: '出错了，请重试',
   contactSupport: '联系客服',
-  footer: 'GLORIE 学生门户 v1.0',
+  footer: '成都追梦飞教育学生门户 v1.0',
 }

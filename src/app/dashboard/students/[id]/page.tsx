@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle, XCircle, Trash2, MessageSquare, Pencil } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle, XCircle, Trash2, MessageSquare, Pencil, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSession } from 'next-auth/react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -130,6 +130,12 @@ export default function StudentDetailPage() {
               </button>
             </>
           )}
+          <a
+            href={`/api/students/${id}/export`}
+            className="px-4 py-2.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-xl hover:bg-emerald-100 transition flex items-center gap-2 text-sm font-medium"
+          >
+            <Download className="w-4 h-4" /> {t('students.exportExcel')}
+          </a>
           <Link
             href={`/dashboard/students/${id}/edit`}
             className="px-4 py-2.5 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition flex items-center gap-2 text-sm font-medium"

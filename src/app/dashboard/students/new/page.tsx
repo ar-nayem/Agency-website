@@ -121,6 +121,7 @@ export default function NewStudentPage() {
   const router = useRouter()
   const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [pendingDocs, setPendingDocs] = useState<PendingDoc[]>([])
   const [docCategories, setDocCategories] = useState<DocCategory[]>([])
   const [fieldRequirements, setFieldRequirements] = useState<FieldReq[]>([])
@@ -228,6 +229,33 @@ export default function NewStudentPage() {
     const reader = new FileReader()
     reader.onload = (ev) => setPhotoPreview(ev.target?.result as string)
     reader.readAsDataURL(file)
+  }
+
+  async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/students/import', {
+        method: 'POST',
+        credentials: 'include',
+        body: fd,
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(t('studentForm.importSuccess'))
+        router.push(`/dashboard/students/${data.id}`)
+      } else {
+        toast.error(data.error || t('studentForm.importFailed'))
+      }
+    } catch {
+      toast.error(t('studentForm.importFailed'))
+    } finally {
+      setImporting(false)
+    }
   }
 
   // Array helpers
@@ -377,13 +405,28 @@ export default function NewStudentPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center gap-4 mb-8">
-        <Link href="/dashboard/students" className="text-muted-foreground hover:text-foreground transition p-2 hover:bg-muted rounded-xl">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('studentForm.applicationFormTitle')}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">{t('studentForm.completeAllSections')}</p>
+      <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/students" className="text-muted-foreground hover:text-foreground transition p-2 hover:bg-muted rounded-xl">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('studentForm.applicationFormTitle')}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">{t('studentForm.completeAllSections')}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href="/api/students/template"
+            className="px-3.5 py-2 border border-border rounded-xl text-foreground hover:bg-muted transition flex items-center gap-2 text-sm font-medium"
+          >
+            <FileText className="w-4 h-4" /> {t('studentForm.downloadTemplate')}
+          </a>
+          <label className="px-3.5 py-2 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 rounded-xl hover:bg-indigo-100 transition flex items-center gap-2 text-sm font-medium cursor-pointer">
+            {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {t('studentForm.importFromExcel')}
+            <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel} disabled={importing} />
+          </label>
         </div>
       </div>
 

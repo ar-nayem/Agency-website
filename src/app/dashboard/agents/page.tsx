@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Plus, Trash2, UserCheck, UserX, Loader2,
-  Mail, User, Key
+  Mail, User, Key, Search
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -20,6 +20,9 @@ export default function AgentsPage() {
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'AGENT' })
   const [submitting, setSubmitting] = useState(false)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   useEffect(() => {
     if (session?.user?.role !== 'OWNER') {
@@ -103,6 +106,15 @@ export default function AgentsPage() {
       toast.error(t('agentsPage.deleteFailed'))
     }
   }
+
+  const filteredAgents = agents.filter((u) => {
+    const q = search.trim().toLowerCase()
+    if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false
+    if (roleFilter && u.role !== roleFilter) return false
+    if (statusFilter === 'active' && !u.isActive) return false
+    if (statusFilter === 'inactive' && u.isActive) return false
+    return true
+  })
 
   if (loading) return <div className="p-8 text-center">{t('common.loading')}</div>
 
@@ -200,6 +212,49 @@ export default function AgentsPage() {
         </div>
       )}
 
+      <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('common.search')}</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={t('agentsPage.searchPlaceholder')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-muted/50"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('agentsPage.role')}</label>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-3 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-muted/50"
+            >
+              <option value="">{t('agentsPage.allRoles')}</option>
+              <option value="OWNER">{t('common.roleOwner')}</option>
+              <option value="ADMIN">{t('common.roleAdmin')}</option>
+              <option value="AGENT">{t('common.roleAgent')}</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('common.status')}</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-muted/50"
+            >
+              <option value="">{t('agentsPage.allStatuses')}</option>
+              <option value="active">{t('common.active')}</option>
+              <option value="inactive">{t('common.inactive')}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -215,7 +270,7 @@ export default function AgentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {agents.map((user) => (
+              {filteredAgents.map((user) => (
                 <tr key={user.id} className="hover:bg-muted transition">
                   <td className="px-6 py-4 font-semibold text-foreground">
                     <Link href={`/dashboard/agents/${user.id}`} className="hover:text-indigo-600 transition-colors">

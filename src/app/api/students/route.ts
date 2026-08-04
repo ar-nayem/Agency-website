@@ -5,6 +5,7 @@ import { getSessionUser } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotification, studentSubmissionTemplate } from '@/src/lib/email'
 import { logActivity } from '@/src/lib/activity'
+import { createStudentFromData } from '@/src/lib/createStudent'
 
 export async function GET(req: NextRequest) {
   try {
@@ -80,54 +81,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Session expired. Please log out and log back in.' }, { status: 401 })
     }
 
-    // Generate serial number
-    const lastStudent = await prisma.student.findFirst({
-      where: { serialNumber: { not: null } },
-      orderBy: { serialNumber: 'desc' },
-    })
-    let nextNum = 1
-    if (lastStudent?.serialNumber) {
-      const match = lastStudent.serialNumber.match(/(\d+)$/)
-      if (match) nextNum = parseInt(match[1], 10) + 1
-    }
-    const serialNumber = `GL-${String(nextNum).padStart(5, '0')}`
+    console.log('POST /api/students: creating student, agentId=', user.id)
 
-    console.log('POST /api/students: creating student, agentId=', user.id, 'serial=', serialNumber)
-
-    const student = await prisma.student.create({
-      data: {
-        ...studentData,
-        serialNumber,
-        agentId: user.id,
-        status: 'PENDING',
-        educationHistory: educationHistory?.length ? {
-          create: educationHistory
-        } : undefined,
-        workExperience: workExperience?.length ? {
-          create: workExperience
-        } : undefined,
-        familyMembers: familyMembers?.length ? {
-          create: familyMembers
-        } : undefined,
-        financialSponsors: financialSponsors?.length ? {
-          create: financialSponsors
-        } : undefined,
-      },
-      include: {
-        agent: { select: { name: true, email: true } },
-        documents: true,
-        educationHistory: true,
-        workExperience: true,
-        familyMembers: true,
-        financialSponsors: true,
-      }
+    const student = await createStudentFromData(user.id, studentData, {
+      educationHistory, workExperience, familyMembers, financialSponsors,
     })
 
     await sendNotification(
       'New Student Submission',
       studentSubmissionTemplate(student.agent.name, student.fullName)
     )
-    await logActivity(user.id, 'STUDENT_CREATED', `${student.fullName} (${serialNumber})`)
+    await logActivity(user.id, 'STUDENT_CREATED', `${student.fullName} (${student.serialNumber})`)
 
     return NextResponse.json(student, { status: 201 })
   } catch (error: any) {

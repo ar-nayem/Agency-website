@@ -89,6 +89,15 @@ export async function POST(req: NextRequest) {
       if (!receiver || (receiver.role !== 'ADMIN' && receiver.role !== 'OWNER')) {
         return NextResponse.json({ error: 'Agents can only message admins' }, { status: 403 })
       }
+      if (receiver.role === 'OWNER') {
+        const ownerMessagedMe = await prisma.message.findFirst({
+          where: { senderId: receiverId, receiverId: user.id },
+          select: { id: true },
+        })
+        if (!ownerMessagedMe) {
+          return NextResponse.json({ error: 'The developer has not started a conversation with you yet' }, { status: 403 })
+        }
+      }
     }
 
     const message = await prisma.message.create({

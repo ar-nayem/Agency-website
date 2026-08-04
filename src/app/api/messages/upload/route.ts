@@ -5,7 +5,8 @@ import { join } from 'path'
 import { getSessionUser } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 
-const MAX_SIZE = 20 * 1024 * 1024
+const MAX_SIZE = 30 * 1024 * 1024
+const ZIP_TYPES = ['application/zip', 'application/x-zip-compressed', 'application/x-zip', 'multipart/x-zip']
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,14 +23,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: 'File too large (max 20MB)' }, { status: 400 })
+      return NextResponse.json({ error: 'File too large (max 30MB)' }, { status: 400 })
     }
 
-    let attachmentType: 'IMAGE' | 'VIDEO' | 'PDF'
+    const isZip = ZIP_TYPES.includes(file.type) || file.name.toLowerCase().endsWith('.zip')
+
+    let attachmentType: 'IMAGE' | 'VIDEO' | 'PDF' | 'ZIP'
     if (file.type.startsWith('image/')) attachmentType = 'IMAGE'
     else if (file.type.startsWith('video/')) attachmentType = 'VIDEO'
     else if (file.type === 'application/pdf') attachmentType = 'PDF'
-    else return NextResponse.json({ error: 'Only images, videos and PDFs are supported' }, { status: 400 })
+    else if (isZip) attachmentType = 'ZIP'
+    else return NextResponse.json({ error: 'Only images, videos, PDFs and zip files are supported' }, { status: 400 })
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)

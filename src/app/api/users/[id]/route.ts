@@ -34,8 +34,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getSessionUser(req)
-    if (!user || !isAdminRole(user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user || user.role !== 'OWNER') {
+      return NextResponse.json({ error: 'Only the owner can delete accounts' }, { status: 401 })
     }
 
     const { id } = await params
@@ -51,14 +51,28 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       }, { status: 400 })
     }
 
-    await prisma.user.delete({ where: { id } })
+    // Anonymize rather than hard-delete: messages and documents this account sent/uploaded
+    // stay in the system (shown as "Deleted User"), but the account itself can no longer log in
+    // and its personal details are scrubbed. Avoids breaking FK integrity on Message/Document/ActivityLog.
+    await prisma.$transaction([
+      prisma.organizationProfile.deleteMany({ where: { userId: id } }),
+      prisma.user.update({
+        where: { id },
+        data: {
+          name: 'Deleted User',
+          email: `deleted-${id}@deleted.local`,
+          password: '',
+          role: 'DELETED',
+          isActive: false,
+          phone: null,
+          wechat: null,
+          avatar: null,
+          bio: null,
+        },
+      }),
+    ])
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    if (error?.code === 'P2003') {
-      return NextResponse.json({
-        error: 'Cannot delete: this account still has related records (messages, documents, or activity logs).'
-      }, { status: 400 })
-    }
+  } catch {
     return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
   }
 }

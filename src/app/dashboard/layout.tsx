@@ -26,8 +26,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
   const isOwner = role === 'OWNER'
 
-  const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'GLORIE', logo: null })
-  const [userOrg, setUserOrg] = useState<OrgData>({ name: 'GLORIE', logo: null })
+  const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
+  const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(r => r.json())
       .then(data => {
         if (data) {
-          setOwnerOrg({ name: data.name || 'GLORIE', logo: data.logo || null })
+          setOwnerOrg({ name: data.name || 'Chengdu Dream Fly Edu', logo: data.logo || null })
         }
       })
       .catch(() => {})

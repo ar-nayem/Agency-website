@@ -2,12 +2,22 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import { prisma } from '@/src/lib/prisma'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = {
-  title: 'GLORIE Student Portal',
-  description: 'Student application and document management system',
+export async function generateMetadata(): Promise<Metadata> {
+  let orgName = 'Chengdu Dream Fly Edu'
+  try {
+    const ownerOrg = await prisma.organizationProfile.findFirst({ where: { user: { role: 'OWNER' } } })
+    if (ownerOrg?.name) orgName = ownerOrg.name
+  } catch {
+    // fall back to default name if the DB isn't reachable
+  }
+  return {
+    title: `${orgName} Student Portal`,
+    description: 'Student application and document management system',
+  }
 }
 
 export default function RootLayout({

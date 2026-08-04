@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import {
   ArrowLeft, Camera, Building2, User, Mail, Phone,
-  MessageCircle, Globe, MapPin, Save, Loader2, Upload, ImageIcon
+  MessageCircle, Globe, MapPin, Save, Loader2, Upload, ImageIcon, Lock
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -47,10 +47,21 @@ export default function ProfilePage() {
     name: '', logo: null, email: null, phone: null, wechat: null,
     address: null, website: null, description: null, welcomeMessage: null,
   })
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
+  const isOwner = profile?.role === 'OWNER'
 
   useEffect(() => {
     fetchProfile()
   }, [])
+
+  useEffect(() => {
+    if (activeTab === 'organization' && profile && !isOwner) {
+      setActiveTab('profile')
+    }
+  }, [activeTab, profile, isOwner])
 
   async function fetchProfile() {
     try {
@@ -123,6 +134,43 @@ export default function ProfilePage() {
     }
   }
 
+  async function changePassword() {
+    if (!currentPassword || !newPassword) {
+      toast.error(t('settings.fillAllPasswordFields'))
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error(t('settings.passwordsDontMatch'))
+      return
+    }
+    if (newPassword.length < 6) {
+      toast.error(t('settings.passwordTooShort'))
+      return
+    }
+    setChangingPassword(true)
+    try {
+      const res = await fetch('/api/profile/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ currentPassword, newPassword })
+      })
+      if (res.ok) {
+        toast.success(t('settings.passwordChangedToast'))
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || t('settings.failedToSave'))
+      }
+    } catch {
+      toast.error(t('settings.failedToSave'))
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
   function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -167,15 +215,17 @@ export default function ProfilePage() {
           <User className="w-4 h-4 inline mr-1.5" />
           {t('settings.myProfileTab')}
         </button>
-        <button
-          onClick={() => setActiveTab('organization')}
-          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'organization' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Building2 className="w-4 h-4 inline mr-1.5" />
-          {t('settings.organizationTab')}
-        </button>
+        {isOwner && (
+          <button
+            onClick={() => setActiveTab('organization')}
+            className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'organization' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Building2 className="w-4 h-4 inline mr-1.5" />
+            {t('settings.organizationTab')}
+          </button>
+        )}
       </div>
 
       {activeTab === 'profile' && profile && (
@@ -271,7 +321,59 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {activeTab === 'organization' && (
+      {activeTab === 'profile' && profile && (
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6 space-y-6 mt-6">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-muted-foreground" />
+            <h3 className="font-bold text-foreground">{t('settings.changePasswordTitle')}</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className={labelClass}>{t('settings.currentPasswordLabel')}</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                className={inputClass}
+                autoComplete="current-password"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>{t('settings.newPasswordLabel')}</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                className={inputClass}
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>{t('settings.confirmPasswordLabel')}</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                className={inputClass}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end pt-4 border-t border-border">
+            <button
+              onClick={changePassword}
+              disabled={changingPassword}
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm"
+            >
+              {changingPassword && <Loader2 className="w-4 h-4 animate-spin" />}
+              <Lock className="w-4 h-4" />
+              {t('settings.changePasswordBtn')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'organization' && isOwner && (
         <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6 space-y-6">
           {/* Logo */}
           <div className="flex items-center gap-6">

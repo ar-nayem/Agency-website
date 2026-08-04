@@ -6,6 +6,10 @@ export const en = {
   // Page headers
   applicationFormTitle: 'Student Application Form',
   completeAllSections: 'Complete all required sections below',
+  downloadTemplate: 'Download Template',
+  importFromExcel: 'Import from Excel',
+  importSuccess: 'Student created from Excel file',
+  importFailed: 'Failed to import Excel file',
   updateStudentInfoBelow: 'Update the student information below',
   loadingStudentData: 'Loading student data...',
 
@@ -67,6 +71,10 @@ export const zh = {
 
   applicationFormTitle: '学生申请表',
   completeAllSections: '请完整填写以下所有必填信息',
+  downloadTemplate: '下载模板',
+  importFromExcel: '从 Excel 导入',
+  importSuccess: '已通过 Excel 文件创建学生',
+  importFailed: '导入 Excel 文件失败',
   updateStudentInfoBelow: '请在下方更新学生信息',
   loadingStudentData: '正在加载学生信息...',
 
