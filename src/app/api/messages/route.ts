@@ -78,9 +78,9 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { receiverId, content, studentId } = body
+    const { receiverId, content, studentId, attachmentUrl, attachmentName, attachmentType, attachmentSize } = body
 
-    if (!receiverId || !content) {
+    if (!receiverId || (!content && !attachmentUrl)) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
@@ -93,7 +93,11 @@ export async function POST(req: NextRequest) {
 
     const message = await prisma.message.create({
       data: {
-        content,
+        content: content || '',
+        attachmentUrl: attachmentUrl || null,
+        attachmentName: attachmentName || null,
+        attachmentType: attachmentType || null,
+        attachmentSize: attachmentSize || null,
         senderId: user.id,
         receiverId,
         studentId: studentId || null,

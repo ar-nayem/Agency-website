@@ -5,13 +5,30 @@ import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
-  MessageSquare, Send, ArrowLeft, Loader2, FileText
+  MessageSquare, Send, ArrowLeft, Loader2, FileText, Paperclip, Smile, X, Download, FileVideo
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 const MENTION_REGEX = /@([A-Za-z]{1,6}-\d{3,})/g
+
+const EMOJIS = [
+  '😀', '😁', '😂', '🤣', '😊', '😉', '😍', '😘', '😜', '🤔',
+  '🙂', '🙃', '😎', '😴', '😢', '😭', '😡', '😱', '🥳', '😇',
+  '👍', '👎', '👏', '🙏', '💪', '🤝', '👋', '✌️', '🤞', '👌',
+  '❤️', '💔', '🔥', '⭐', '✨', '🎉', '🎊', '💯', '⚡', '☀️',
+  '✅', '❌', '⚠️', '❓', '❗', '📌', '📎', '📷', '🎥', '📄',
+  '📞', '✈️', '🎓', '🏫', '💰', '⏰', '📅', '🇧🇩', '🇨🇳', '👨‍💼',
+]
+
+type AttachmentType = 'IMAGE' | 'VIDEO' | 'PDF'
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 interface MentionStudent {
   id: string
@@ -73,6 +90,46 @@ function renderMessageContent(content: string) {
   )
 }
 
+function MessageAttachmentView({
+  url, name, type, size, t
+}: {
+  url: string
+  name?: string | null
+  type?: string | null
+  size?: number | null
+  t: (path: string) => string
+}) {
+  if (type === 'IMAGE') {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" download={name || undefined}>
+        <img src={url} alt={name || 'image'} className="max-w-full max-h-64 w-auto object-cover" />
+      </a>
+    )
+  }
+  if (type === 'VIDEO') {
+    return (
+      <video src={url} controls className="max-w-full max-h-64 w-full bg-black" />
+    )
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      download={name || undefined}
+      title={t('messages.downloadFile')}
+      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-black/5 transition-colors"
+    >
+      <FileText className="w-8 h-8 shrink-0 opacity-80" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{name || 'Document.pdf'}</p>
+        {typeof size === 'number' && <p className="text-xs opacity-70">{formatFileSize(size)}</p>}
+      </div>
+      <Download className="w-4 h-4 shrink-0 opacity-70" />
+    </a>
+  )
+}
+
 interface Conversation {
   partner: { id: string; name: string; role: string }
   student: { id: string; fullName: string; serialNumber: string | null } | null
@@ -83,6 +140,10 @@ interface Conversation {
 interface MessageItem {
   id: string
   content: string
+  attachmentUrl?: string | null
+  attachmentName?: string | null
+  attachmentType?: string | null
+  attachmentSize?: number | null
   senderId: string
   receiverId: string
   isRead: boolean
@@ -112,8 +173,13 @@ export default function MessagesContent() {
   const [mentionOpen, setMentionOpen] = useState(false)
   const [mentionResults, setMentionResults] = useState<MentionStudent[]>([])
   const [mentionStart, setMentionStart] = useState<number | null>(null)
+  const [attachFile, setAttachFile] = useState<File | null>(null)
+  const [attachPreview, setAttachPreview] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [emojiOpen, setEmojiOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
 
@@ -187,14 +253,23 @@ export default function MessagesContent() {
 
   async function sendMessage() {
     const content = newMessage.trim()
-    if (!content || !selectedPartner || sending) return
+    if ((!content && !attachFile) || !selectedPartner || sending) return
     setSending(true)
+    const fileToSend = attachFile
+    const localPreview = attachPreview
     setNewMessage('')
+    setAttachFile(null)
+    setAttachPreview(null)
     setMentionOpen(false)
+    setEmojiOpen(false)
     const optimisticId = `optimistic-${Date.now()}`
     const optimisticMessage: MessageItem = {
       id: optimisticId,
       content,
+      attachmentUrl: localPreview,
+      attachmentName: fileToSend?.name || null,
+      attachmentType: fileToSend ? attachmentTypeOf(fileToSend) : null,
+      attachmentSize: fileToSend?.size || null,
       senderId: session?.user?.id || '',
       receiverId: selectedPartner,
       isRead: true,
@@ -204,6 +279,20 @@ export default function MessagesContent() {
     }
     setMessages(prev => [...prev, optimisticMessage])
     try {
+      let attachment: { url: string; name: string; type: string; size: number } | null = null
+      if (fileToSend) {
+        setUploading(true)
+        const fd = new FormData()
+        fd.append('file', fileToSend)
+        const upRes = await fetch('/api/messages/upload', { method: 'POST', credentials: 'include', body: fd })
+        setUploading(false)
+        if (!upRes.ok) {
+          const d = await upRes.json().catch(() => ({}))
+          throw new Error(d.error || t('messages.failedSendMessage'))
+        }
+        attachment = await upRes.json()
+      }
+
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -212,6 +301,10 @@ export default function MessagesContent() {
           receiverId: selectedPartner,
           content,
           studentId: selectedStudent,
+          attachmentUrl: attachment?.url,
+          attachmentName: attachment?.name,
+          attachmentType: attachment?.type,
+          attachmentSize: attachment?.size,
         })
       })
       if (res.ok) {
@@ -224,14 +317,58 @@ export default function MessagesContent() {
         setMessages(prev => prev.filter(m => m.id !== optimisticId))
         setNewMessage(content)
       }
-    } catch {
-      toast.error(t('messages.failedSendMessage'))
+    } catch (err: any) {
+      toast.error(err?.message || t('messages.failedSendMessage'))
       setMessages(prev => prev.filter(m => m.id !== optimisticId))
       setNewMessage(content)
     } finally {
+      if (localPreview) URL.revokeObjectURL(localPreview)
       setSending(false)
+      setUploading(false)
       textareaRef.current?.focus()
     }
+  }
+
+  function attachmentTypeOf(file: File): AttachmentType | null {
+    if (file.type.startsWith('image/')) return 'IMAGE'
+    if (file.type.startsWith('video/')) return 'VIDEO'
+    if (file.type === 'application/pdf') return 'PDF'
+    return null
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const type = attachmentTypeOf(file)
+    if (!type) {
+      toast.error(t('messages.unsupportedFileType'))
+      return
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error(t('messages.fileTooLarge'))
+      return
+    }
+    if (attachPreview) URL.revokeObjectURL(attachPreview)
+    setAttachFile(file)
+    setAttachPreview(type === 'PDF' ? null : URL.createObjectURL(file))
+  }
+
+  function removeAttachment() {
+    if (attachPreview) URL.revokeObjectURL(attachPreview)
+    setAttachFile(null)
+    setAttachPreview(null)
+  }
+
+  function insertEmoji(emoji: string) {
+    const cursor = textareaRef.current?.selectionStart ?? newMessage.length
+    const value = `${newMessage.slice(0, cursor)}${emoji}${newMessage.slice(cursor)}`
+    setNewMessage(value)
+    const nextCursor = cursor + emoji.length
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      textareaRef.current?.setSelectionRange(nextCursor, nextCursor)
+    })
   }
 
   function handleMessageChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -456,12 +593,25 @@ export default function MessagesContent() {
                       <div key={msg.id} className={showGap ? 'pt-2' : ''}>
                         <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[70%] ${isMine ? 'order-2' : 'order-1'}`}>
-                            <div className={`px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap break-words ${
+                            <div className={`rounded-2xl text-sm overflow-hidden ${
                               isMine
                                 ? 'bg-indigo-600 text-white rounded-br-md'
                                 : 'bg-muted text-foreground rounded-bl-md'
                             } ${msg.id.startsWith('optimistic-') ? 'opacity-60' : ''}`}>
-                              {renderMessageContent(msg.content)}
+                              {msg.attachmentUrl && (
+                                <MessageAttachmentView
+                                  url={msg.attachmentUrl}
+                                  name={msg.attachmentName}
+                                  type={msg.attachmentType}
+                                  size={msg.attachmentSize}
+                                  t={t}
+                                />
+                              )}
+                              {msg.content && (
+                                <div className="px-4 py-2.5 whitespace-pre-wrap break-words">
+                                  {renderMessageContent(msg.content)}
+                                </div>
+                              )}
                             </div>
                             <p className={`text-[11px] text-muted-foreground mt-1 ${isMine ? 'text-right' : 'text-left'}`}>
                               {formatTime(msg.createdAt)}
@@ -496,13 +646,78 @@ export default function MessagesContent() {
                     ))}
                   </div>
                 )}
+                {attachFile && (
+                  <div className="mb-2 flex items-center gap-2.5 p-2 bg-muted rounded-xl border border-border w-fit max-w-full">
+                    {attachPreview && attachmentTypeOf(attachFile) === 'IMAGE' && (
+                      <img src={attachPreview} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    )}
+                    {attachPreview && attachmentTypeOf(attachFile) === 'VIDEO' && (
+                      <FileVideo className="w-10 h-10 shrink-0 text-indigo-500" />
+                    )}
+                    {attachmentTypeOf(attachFile) === 'PDF' && (
+                      <FileText className="w-10 h-10 shrink-0 text-rose-500" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate max-w-[12rem]">{attachFile.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatFileSize(attachFile.size)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeAttachment}
+                      title={t('messages.removeAttachment')}
+                      className="p-1 rounded-md text-muted-foreground hover:bg-black/10 hover:text-foreground transition-colors shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {emojiOpen && (
+                  <div className="absolute bottom-full left-4 mb-2 bg-card border border-border rounded-xl shadow-lg p-2 z-10 grid grid-cols-10 gap-0.5 w-72">
+                    {EMOJIS.map(e => (
+                      <button
+                        key={e}
+                        type="button"
+                        onMouseDown={ev => { ev.preventDefault(); insertEmoji(e) }}
+                        className="text-lg leading-none w-7 h-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,application/pdf"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+
                 <div className="flex gap-2 items-end">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title={t('messages.attachFile')}
+                    className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+                  >
+                    <Paperclip className="w-[18px] h-[18px]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmojiOpen(o => !o)}
+                    title={t('messages.addEmoji')}
+                    className={`p-2.5 rounded-xl transition-colors shrink-0 ${emojiOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                  >
+                    <Smile className="w-[18px] h-[18px]" />
+                  </button>
                   <textarea
                     ref={textareaRef}
                     value={newMessage}
                     onChange={handleMessageChange}
                     onKeyDown={e => {
-                      if (e.key === 'Escape') setMentionOpen(false)
+                      if (e.key === 'Escape') { setMentionOpen(false); setEmojiOpen(false) }
                       if (e.key === 'Enter' && !e.shiftKey && !mentionOpen) {
                         e.preventDefault()
                         sendMessage()
@@ -514,12 +729,17 @@ export default function MessagesContent() {
                   />
                   <button
                     onClick={sendMessage}
-                    disabled={sending || !newMessage.trim()}
+                    disabled={sending || (!newMessage.trim() && !attachFile)}
                     className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm shadow-indigo-500/20"
                   >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>
                 </div>
+                {uploading && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> {t('common.loading')}
+                  </p>
+                )}
               </div>
             </>
           ) : (

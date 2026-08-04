@@ -160,8 +160,12 @@ model Document {
 }
 
 model Message {
-  id          String    @id @default(uuid())
-  content     String
+  id             String    @id @default(uuid())
+  content        String    @default("")
+  attachmentUrl  String?
+  attachmentName String?
+  attachmentType String?
+  attachmentSize Int?
   senderId    String
   sender      User      @relation("SentBy", fields: [senderId], references: [id])
   receiverId  String

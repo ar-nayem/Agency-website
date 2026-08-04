@@ -21,6 +21,12 @@ export const en = {
   failedSendMessage: 'Failed to send message',
   failedLoadAgents: 'Failed to load agents',
   noAccessFile: 'No access to this file',
+  unsupportedFileType: 'Only images, videos and PDFs are supported',
+  fileTooLarge: 'File too large (max 20MB)',
+  removeAttachment: 'Remove',
+  downloadFile: 'Download',
+  addEmoji: 'Add emoji',
+  attachFile: 'Attach file',
 }
 
 export const zh = {
@@ -46,4 +52,10 @@ export const zh = {
   failedSendMessage: '发送消息失败',
   failedLoadAgents: '加载代理列表失败',
   noAccessFile: '无权访问该文件',
+  unsupportedFileType: '仅支持图片、视频和 PDF 文件',
+  fileTooLarge: '文件过大（最大 20MB）',
+  removeAttachment: '移除',
+  downloadFile: '下载',
+  addEmoji: '添加表情',
+  attachFile: '添加附件',
 }
