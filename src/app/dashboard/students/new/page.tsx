@@ -1,10 +1,12 @@
 'use client'
 
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Save, ArrowLeft, Loader2, Upload, FileText, Image, Video, X, Plus, Trash2, FileImage } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 interface EducationItem {
   degree: string
@@ -74,35 +76,36 @@ function YearMonthDayInput({ label, required, year, month, day, onChange }: {
   day: string
   onChange: (y: string, m: string, d: string) => void
 }) {
+  const { t } = useLanguage()
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+      <label className="block text-sm font-medium text-foreground mb-1.5">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="YYYY"
+          placeholder={t('studentForm.yearPlaceholder')}
           maxLength={4}
           value={year}
           onChange={e => onChange(e.target.value, month, day)}
-          className="w-20 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm text-center bg-white"
+          className="w-20 px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm text-center bg-card"
         />
-        <span className="self-center text-slate-300 font-medium">/</span>
+        <span className="self-center text-muted-foreground font-medium">/</span>
         <input
           type="text"
-          placeholder="MM"
+          placeholder={t('studentForm.monthPlaceholder')}
           maxLength={2}
           value={month}
           onChange={e => onChange(year, e.target.value, day)}
-          className="w-14 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm text-center bg-white"
+          className="w-14 px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm text-center bg-card"
         />
-        <span className="self-center text-slate-300 font-medium">/</span>
+        <span className="self-center text-muted-foreground font-medium">/</span>
         <input
           type="text"
-          placeholder="DD"
+          placeholder={t('studentForm.dayPlaceholder')}
           maxLength={2}
           value={day}
           onChange={e => onChange(year, month, e.target.value)}
-          className="w-14 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm text-center bg-white"
+          className="w-14 px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm text-center bg-card"
         />
       </div>
     </div>
@@ -116,6 +119,7 @@ function buildDate(year: string, month: string, day: string) {
 
 export default function NewStudentPage() {
   const router = useRouter()
+  const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [pendingDocs, setPendingDocs] = useState<PendingDoc[]>([])
   const [docCategories, setDocCategories] = useState<DocCategory[]>([])
@@ -189,12 +193,12 @@ export default function NewStudentPage() {
     fetch('/api/document-requirements')
       .then(r => r.json())
       .then(data => setDocCategories(data))
-      .catch(() => toast.error('Failed to load document categories'))
+      .catch(() => toast.error(t('studentForm.failedLoadDocCategories')))
 
     fetch('/api/field-requirements')
       .then(r => r.json())
       .then(data => setFieldRequirements(data))
-      .catch(() => toast.error('Failed to load field requirements'))
+      .catch(() => toast.error(t('studentForm.failedLoadFieldRequirements')))
   }, [])
 
   function isRequired(key: string) {
@@ -324,7 +328,7 @@ export default function NewStudentPage() {
 
       if (!studentRes.ok) {
         const errData = await studentRes.json().catch(() => ({}))
-        toast.error(errData.error || 'Failed to create student')
+        toast.error(errData.error || t('studentForm.failedCreateStudent'))
         setLoading(false)
         return
       }
@@ -351,10 +355,10 @@ export default function NewStudentPage() {
         if (res.ok) uploadedCount++
       }
 
-      toast.success(`Student created with ${uploadedCount} document(s) uploaded`)
+      toast.success(t('studentForm.studentCreatedWithDocs').replace('{count}', String(uploadedCount)))
       router.push('/dashboard/students')
     } catch {
-      toast.error('Something went wrong')
+      toast.error(t('studentForm.somethingWentWrong'))
     } finally {
       setLoading(false)
     }
@@ -366,20 +370,20 @@ export default function NewStudentPage() {
     return <FileText className="w-5 h-5 text-indigo-500" />
   }
 
-  const inputClass = "w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-white transition-all"
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1.5"
-  const sectionClass = "bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 backdrop-blur-sm"
-  const sectionTitle = "text-lg font-bold text-slate-900 mb-5 pb-3 border-b border-slate-100 flex items-center gap-2"
+  const inputClass = "w-full px-3.5 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-card transition-all"
+  const labelClass = "block text-sm font-medium text-foreground mb-1.5"
+  const sectionClass = "bg-card rounded-2xl shadow-sm border border-border/60 p-6 backdrop-blur-sm"
+  const sectionTitle = "text-lg font-bold text-foreground mb-5 pb-3 border-b border-border flex items-center gap-2"
 
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
-        <Link href="/dashboard/students" className="text-slate-400 hover:text-slate-600 transition p-2 hover:bg-slate-100 rounded-xl">
+        <Link href="/dashboard/students" className="text-muted-foreground hover:text-foreground transition p-2 hover:bg-muted rounded-xl">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Student Application Form</h1>
-          <p className="text-slate-500 mt-1 text-sm">Complete all required sections below</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('studentForm.applicationFormTitle')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t('studentForm.completeAllSections')}</p>
         </div>
       </div>
 
@@ -390,60 +394,60 @@ export default function NewStudentPage() {
 
             {/* 1. Personal Information */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">1.</span> Personal Information</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">1.</span> {t('studentFields.personalInformation')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>{reqLabel('Passport Family Name', 'passportFamilyName')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.passportFamilyName'), 'passportFamilyName')}</label>
                   <input required={isRequired('passportFamilyName')} value={passportFamilyName} onChange={e => setPassportFamilyName(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Given Name', 'givenName')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.givenName'), 'givenName')}</label>
                   <input required={isRequired('givenName')} value={givenName} onChange={e => setGivenName(e.target.value)} className={inputClass} />
                 </div>
                 <div className="md:col-span-2">
-                  <label className={labelClass}>{reqLabel('Full Name (as on passport)', 'fullName')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.fullName'), 'fullName')}</label>
                   <input required={isRequired('fullName')} value={fullName} onChange={e => setFullName(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Gender', 'gender')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.gender'), 'gender')}</label>
                   <select required={isRequired('gender')} value={gender} onChange={e => setGender(e.target.value)} className={inputClass}>
-                    <option value="">Select</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
+                    <option value="">{t('studentForm.selectPlaceholder')}</option>
+                    <option value="Male">{t('studentForm.genderMale')}</option>
+                    <option value="Female">{t('studentForm.genderFemale')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Marital Status', 'maritalStatus')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.maritalStatus'), 'maritalStatus')}</label>
                   <select required={isRequired('maritalStatus')} value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} className={inputClass}>
-                    <option value="">Select</option>
-                    <option value="Single">Single</option>
-                    <option value="Married">Married</option>
-                    <option value="Divorced">Divorced</option>
-                    <option value="Widowed">Widowed</option>
+                    <option value="">{t('studentForm.selectPlaceholder')}</option>
+                    <option value="Single">{t('studentForm.maritalSingle')}</option>
+                    <option value="Married">{t('studentForm.maritalMarried')}</option>
+                    <option value="Divorced">{t('studentForm.maritalDivorced')}</option>
+                    <option value="Widowed">{t('studentForm.maritalWidowed')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Chinese Name</label>
-                  <input value={chineseName} onChange={e => setChineseName(e.target.value)} className={inputClass} placeholder="If any" />
+                  <label className={labelClass}>{t('studentFields.chineseName')}</label>
+                  <input value={chineseName} onChange={e => setChineseName(e.target.value)} className={inputClass} placeholder={t('studentForm.ifAny')} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Religion', 'religion')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.religion'), 'religion')}</label>
                   <input required={isRequired('religion')} value={religion} onChange={e => setReligion(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Occupation', 'occupation')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.occupation'), 'occupation')}</label>
                   <input required={isRequired('occupation')} value={occupation} onChange={e => setOccupation(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>Employer / Institution Affiliated</label>
+                  <label className={labelClass}>{t('studentFields.employerInstitution')}</label>
                   <input value={employerInstitution} onChange={e => setEmployerInstitution(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Nationality', 'nationality')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.nationality'), 'nationality')}</label>
                   <input required={isRequired('nationality')} value={nationality} onChange={e => setNationality(e.target.value)} className={inputClass} />
                 </div>
                 <YearMonthDayInput
-                  label={reqLabel('Date of Birth', 'dateOfBirth')}
+                  label={reqLabel(t('studentFields.dateOfBirth'), 'dateOfBirth')}
                   required={isRequired('dateOfBirth')}
                   year={dateOfBirthYMD.year}
                   month={dateOfBirthYMD.month}
@@ -451,33 +455,33 @@ export default function NewStudentPage() {
                   onChange={(y, m, d) => setDateOfBirthYMD({ year: y, month: m, day: d })}
                 />
                 <div>
-                  <label className={labelClass}>{reqLabel('Country of Birth', 'countryOfBirth')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.countryOfBirth'), 'countryOfBirth')}</label>
                   <input required={isRequired('countryOfBirth')} value={countryOfBirth} onChange={e => setCountryOfBirth(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Place of Birth', 'placeOfBirth')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.placeOfBirth'), 'placeOfBirth')}</label>
                   <input required={isRequired('placeOfBirth')} value={placeOfBirth} onChange={e => setPlaceOfBirth(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>Years Living in Home Country</label>
+                  <label className={labelClass}>{t('studentFields.yearsInHomeCountry')}</label>
                   <input value={yearsInHomeCountry} onChange={e => setYearsInHomeCountry(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>WeChat</label>
+                  <label className={labelClass}>{t('studentFields.wechat')}</label>
                   <input value={wechat} onChange={e => setWechat(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Of Chinese Descent?', 'chineseDescent')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.chineseDescent'), 'chineseDescent')}</label>
                   <select required={isRequired('chineseDescent')} value={chineseDescent} onChange={e => setChineseDescent(e.target.value)} className={inputClass}>
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
+                    <option value="No">{t('common.no')}</option>
+                    <option value="Yes">{t('common.yes')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Currently in China?', 'currentlyInChina')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.currentlyInChina'), 'currentlyInChina')}</label>
                   <select required={isRequired('currentlyInChina')} value={currentlyInChina} onChange={e => setCurrentlyInChina(e.target.value)} className={inputClass}>
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
+                    <option value="No">{t('common.no')}</option>
+                    <option value="Yes">{t('common.yes')}</option>
                   </select>
                 </div>
               </div>
@@ -485,34 +489,34 @@ export default function NewStudentPage() {
 
             {/* 2. Correspondence Address */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">2.</span> Correspondence Address</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">2.</span> {t('studentFields.correspondenceAddress')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className={labelClass}>Home Address</label>
+                  <label className={labelClass}>{t('studentFields.homeAddress')}</label>
                   <input value={homeAddress} onChange={e => setHomeAddress(e.target.value)} className={inputClass} />
                 </div>
                 <div className="md:col-span-2">
-                  <label className={labelClass}>{reqLabel('Detailed Address', 'detailedAddress')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.detailedAddress'), 'detailedAddress')}</label>
                   <input required={isRequired('detailedAddress')} value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('City / Province', 'cityProvince')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.cityProvince'), 'cityProvince')}</label>
                   <input required={isRequired('cityProvince')} value={cityProvince} onChange={e => setCityProvince(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Country', 'country')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.country'), 'country')}</label>
                   <input required={isRequired('country')} value={country} onChange={e => setCountry(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Zipcode', 'zipcode')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.zipcode'), 'zipcode')}</label>
                   <input required={isRequired('zipcode')} value={zipcode} onChange={e => setZipcode(e.target.value)} className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>{reqLabel('Phone / Mobile', 'phoneMobile')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.phoneMobile'), 'phoneMobile')}</label>
                   <input required={isRequired('phoneMobile')} value={phoneMobile} onChange={e => setPhoneMobile(e.target.value)} className={inputClass} />
                 </div>
                 <div className="md:col-span-2">
-                  <label className={labelClass}>{reqLabel('Main Email', 'mainEmail')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.mainEmail'), 'mainEmail')}</label>
                   <input type="email" required={isRequired('mainEmail')} value={mainEmail} onChange={e => setMainEmail(e.target.value)} className={inputClass} />
                 </div>
               </div>
@@ -520,14 +524,14 @@ export default function NewStudentPage() {
 
             {/* 3. Passport & Visa */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">3.</span> Passport & Visa Information</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">3.</span> {t('studentFields.passportVisaSection')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>{reqLabel('Passport No.', 'passportNo')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.passportNo'), 'passportNo')}</label>
                   <input required={isRequired('passportNo')} value={passportNo} onChange={e => setPassportNo(e.target.value)} className={inputClass} />
                 </div>
                 <YearMonthDayInput
-                  label={reqLabel('Passport Expiry Date', 'passportExpiryDate')}
+                  label={reqLabel(t('studentFields.passportExpiryDate'), 'passportExpiryDate')}
                   required={isRequired('passportExpiryDate')}
                   year={passportExpiryYMD.year}
                   month={passportExpiryYMD.month}
@@ -535,11 +539,11 @@ export default function NewStudentPage() {
                   onChange={(y, m, d) => setPassportExpiryYMD({ year: y, month: m, day: d })}
                 />
                 <div>
-                  <label className={labelClass}>Old Passport No.</label>
+                  <label className={labelClass}>{t('studentFields.oldPassportNo')}</label>
                   <input value={oldPassportNo} onChange={e => setOldPassportNo(e.target.value)} className={inputClass} />
                 </div>
                 <YearMonthDayInput
-                  label="Old Passport Expiry"
+                  label={t('studentFields.oldPassportExpiry')}
                   year={oldPassportExpiryYMD.year}
                   month={oldPassportExpiryYMD.month}
                   day={oldPassportExpiryYMD.day}
@@ -550,41 +554,41 @@ export default function NewStudentPage() {
 
             {/* 4. Learning Experience in China */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">4.</span> Learning Experience in China</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">4.</span> {t('studentFields.learningExperienceChina')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>{reqLabel('Have you studied in China?', 'studiedInChina')}</label>
+                  <label className={labelClass}>{reqLabel(t('studentFields.studiedInChina'), 'studiedInChina')}</label>
                   <select required={isRequired('studiedInChina')} value={studiedInChina} onChange={e => setStudiedInChina(e.target.value)} className={inputClass}>
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
+                    <option value="No">{t('common.no')}</option>
+                    <option value="Yes">{t('common.yes')}</option>
                   </select>
                 </div>
                 {studiedInChina === 'Yes' && (
                   <>
                     <div>
-                      <label className={labelClass}>Visa Type</label>
+                      <label className={labelClass}>{t('studentFields.visaType')}</label>
                       <input value={visaType} onChange={e => setVisaType(e.target.value)} className={inputClass} />
                     </div>
                     <div>
-                      <label className={labelClass}>Institution in China</label>
+                      <label className={labelClass}>{t('studentFields.chinaInstitution')}</label>
                       <input value={chinaInstitution} onChange={e => setChinaInstitution(e.target.value)} className={inputClass} />
                     </div>
                     <YearMonthDayInput
-                      label="Visa Expiry Date"
+                      label={t('studentFields.visaExpiryDate')}
                       year={visaExpiryYMD.year}
                       month={visaExpiryYMD.month}
                       day={visaExpiryYMD.day}
                       onChange={(y, m, d) => setVisaExpiryYMD({ year: y, month: m, day: d })}
                     />
                     <YearMonthDayInput
-                      label="Study Duration (From)"
+                      label={t('studentFields.studyInChinaFrom')}
                       year={studyInChinaFromYMD.year}
                       month={studyInChinaFromYMD.month}
                       day={studyInChinaFromYMD.day}
                       onChange={(y, m, d) => setStudyInChinaFromYMD({ year: y, month: m, day: d })}
                     />
                     <YearMonthDayInput
-                      label="Study Duration (To)"
+                      label={t('studentFields.studyInChinaTo')}
                       year={studyInChinaToYMD.year}
                       month={studyInChinaToYMD.month}
                       day={studyInChinaToYMD.day}
@@ -597,119 +601,119 @@ export default function NewStudentPage() {
 
             {/* 5. Program Applied */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">5.</span> Program Applied For</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">5.</span> {t('studentFields.programAppliedSection')}</h3>
               <div>
-                <label className={labelClass}>{reqLabel('Program / Course', 'programApplied')}</label>
+                <label className={labelClass}>{reqLabel(t('studentFields.programApplied'), 'programApplied')}</label>
                 <input value={programApplied} onChange={e => setProgramApplied(e.target.value)} className={inputClass} required={isRequired('programApplied')} />
               </div>
             </div>
 
             {/* 6. Financial Sponsors */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">6.</span> Financial Sponsor's Information</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">6.</span> {t('studentFields.financialSponsors')}</h3>
               {financialSponsors.map((s, i) => (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-slate-50/70 rounded-xl border border-slate-100">
-                  <input placeholder="Name *" required value={s.name} onChange={e => updateSponsor(i, 'name', e.target.value)} className={inputClass} />
-                  <input placeholder="Relationship *" required value={s.relationship} onChange={e => updateSponsor(i, 'relationship', e.target.value)} className={inputClass} />
-                  <input placeholder="Nationality *" required value={s.nationality} onChange={e => updateSponsor(i, 'nationality', e.target.value)} className={inputClass} />
-                  <input placeholder="Employer" value={s.employer} onChange={e => updateSponsor(i, 'employer', e.target.value)} className={inputClass} />
-                  <input placeholder="Occupation" value={s.occupation} onChange={e => updateSponsor(i, 'occupation', e.target.value)} className={inputClass} />
-                  <input placeholder="Phone" value={s.phone} onChange={e => updateSponsor(i, 'phone', e.target.value)} className={inputClass} />
-                  <input placeholder="Email" value={s.email} onChange={e => updateSponsor(i, 'email', e.target.value)} className={inputClass} />
+                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-muted/70 rounded-xl border border-border">
+                  <input placeholder={`${t('studentFields.name')} *`} required value={s.name} onChange={e => updateSponsor(i, 'name', e.target.value)} className={inputClass} />
+                  <input placeholder={`${t('studentFields.relationship')} *`} required value={s.relationship} onChange={e => updateSponsor(i, 'relationship', e.target.value)} className={inputClass} />
+                  <input placeholder={`${t('studentFields.nationality')} *`} required value={s.nationality} onChange={e => updateSponsor(i, 'nationality', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.employer')} value={s.employer} onChange={e => updateSponsor(i, 'employer', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.occupation')} value={s.occupation} onChange={e => updateSponsor(i, 'occupation', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.phone')} value={s.phone} onChange={e => updateSponsor(i, 'phone', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.email')} value={s.email} onChange={e => updateSponsor(i, 'email', e.target.value)} className={inputClass} />
                   <div className="md:col-span-2 flex justify-end">
                     {financialSponsors.length > 1 && (
                       <button type="button" onClick={() => removeSponsor(i)} className="text-red-500 text-sm flex items-center gap-1 hover:text-red-700 transition">
-                        <Trash2 className="w-4 h-4" /> Remove
+                        <Trash2 className="w-4 h-4" /> {t('studentForm.remove')}
                       </button>
                     )}
                   </div>
                 </div>
               ))}
               <button type="button" onClick={addSponsor} className="text-indigo-600 text-sm flex items-center gap-1.5 mt-2 font-medium hover:text-indigo-800 transition">
-                <Plus className="w-4 h-4" /> Add Sponsor
+                <Plus className="w-4 h-4" /> {t('studentForm.addSponsor')}
               </button>
             </div>
 
             {/* 7. Education Background */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">7.</span> Education Background</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">7.</span> {t('studentFields.educationHistory')}</h3>
               {educationHistory.map((edu, i) => (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-slate-50/70 rounded-xl border border-slate-100">
-                  <input placeholder="Degree *" required value={edu.degree} onChange={e => updateEducation(i, 'degree', e.target.value)} className={inputClass} />
-                  <input placeholder="School Name *" required value={edu.schoolName} onChange={e => updateEducation(i, 'schoolName', e.target.value)} className={inputClass} />
-                  <input placeholder="Year From" value={edu.yearFrom} onChange={e => updateEducation(i, 'yearFrom', e.target.value)} className={inputClass} />
-                  <input placeholder="Year To" value={edu.yearTo} onChange={e => updateEducation(i, 'yearTo', e.target.value)} className={inputClass} />
-                  <input placeholder="Contact Person" value={edu.contactPerson} onChange={e => updateEducation(i, 'contactPerson', e.target.value)} className={inputClass} />
+                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-muted/70 rounded-xl border border-border">
+                  <input placeholder={`${t('studentFields.degree')} *`} required value={edu.degree} onChange={e => updateEducation(i, 'degree', e.target.value)} className={inputClass} />
+                  <input placeholder={`${t('studentFields.schoolName')} *`} required value={edu.schoolName} onChange={e => updateEducation(i, 'schoolName', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.yearFrom')} value={edu.yearFrom} onChange={e => updateEducation(i, 'yearFrom', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.yearTo')} value={edu.yearTo} onChange={e => updateEducation(i, 'yearTo', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.contactPerson')} value={edu.contactPerson} onChange={e => updateEducation(i, 'contactPerson', e.target.value)} className={inputClass} />
                   <div className="flex justify-end items-center">
                     {educationHistory.length > 1 && (
                       <button type="button" onClick={() => removeEducation(i)} className="text-red-500 text-sm flex items-center gap-1 hover:text-red-700 transition">
-                        <Trash2 className="w-4 h-4" /> Remove
+                        <Trash2 className="w-4 h-4" /> {t('studentForm.remove')}
                       </button>
                     )}
                   </div>
                 </div>
               ))}
               <button type="button" onClick={addEducation} className="text-indigo-600 text-sm flex items-center gap-1.5 mt-2 font-medium hover:text-indigo-800 transition">
-                <Plus className="w-4 h-4" /> Add Education
+                <Plus className="w-4 h-4" /> {t('studentForm.addEducation')}
               </button>
             </div>
 
             {/* 8. Work Experience */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">8.</span> Work Experience</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">8.</span> {t('studentFields.workExperience')}</h3>
               {workExperience.map((w, i) => (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-slate-50/70 rounded-xl border border-slate-100">
-                  <input placeholder="Year From" value={w.yearFrom} onChange={e => updateWork(i, 'yearFrom', e.target.value)} className={inputClass} />
-                  <input placeholder="Year To" value={w.yearTo} onChange={e => updateWork(i, 'yearTo', e.target.value)} className={inputClass} />
-                  <input placeholder="Company" value={w.company} onChange={e => updateWork(i, 'company', e.target.value)} className={inputClass} />
-                  <input placeholder="Occupation" value={w.occupation} onChange={e => updateWork(i, 'occupation', e.target.value)} className={inputClass} />
-                  <input placeholder="Reference" value={w.reference} onChange={e => updateWork(i, 'reference', e.target.value)} className={inputClass} />
-                  <input placeholder="Phone" value={w.phone} onChange={e => updateWork(i, 'phone', e.target.value)} className={inputClass} />
-                  <input placeholder="Email" value={w.email} onChange={e => updateWork(i, 'email', e.target.value)} className={inputClass} />
+                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-muted/70 rounded-xl border border-border">
+                  <input placeholder={t('studentFields.yearFrom')} value={w.yearFrom} onChange={e => updateWork(i, 'yearFrom', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.yearTo')} value={w.yearTo} onChange={e => updateWork(i, 'yearTo', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.company')} value={w.company} onChange={e => updateWork(i, 'company', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.occupation')} value={w.occupation} onChange={e => updateWork(i, 'occupation', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.reference')} value={w.reference} onChange={e => updateWork(i, 'reference', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.phone')} value={w.phone} onChange={e => updateWork(i, 'phone', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.email')} value={w.email} onChange={e => updateWork(i, 'email', e.target.value)} className={inputClass} />
                   <div className="md:col-span-2 flex justify-end">
                     {workExperience.length > 1 && (
                       <button type="button" onClick={() => removeWork(i)} className="text-red-500 text-sm flex items-center gap-1 hover:text-red-700 transition">
-                        <Trash2 className="w-4 h-4" /> Remove
+                        <Trash2 className="w-4 h-4" /> {t('studentForm.remove')}
                       </button>
                     )}
                   </div>
                 </div>
               ))}
               <button type="button" onClick={addWork} className="text-indigo-600 text-sm flex items-center gap-1.5 mt-2 font-medium hover:text-indigo-800 transition">
-                <Plus className="w-4 h-4" /> Add Work Experience
+                <Plus className="w-4 h-4" /> {t('studentForm.addWorkExperience')}
               </button>
             </div>
 
             {/* 9. Family Members */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">9.</span> Family Members (at least 2)</h3>
-              <p className="text-xs text-slate-500 mb-3">Parents information is required</p>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">9.</span> {t('studentFields.familyMembers')} {t('studentForm.atLeastTwo')}</h3>
+              <p className="text-xs text-muted-foreground mb-3">{t('studentForm.parentsInfoRequired')}</p>
               {familyMembers.map((f, i) => (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-slate-50/70 rounded-xl border border-slate-100">
-                  <input placeholder="Name *" required value={f.name} onChange={e => updateFamily(i, 'name', e.target.value)} className={inputClass} />
-                  <input placeholder="Relationship *" required value={f.relationship} onChange={e => updateFamily(i, 'relationship', e.target.value)} className={inputClass} />
-                  <input placeholder="Nationality *" required value={f.nationality} onChange={e => updateFamily(i, 'nationality', e.target.value)} className={inputClass} />
-                  <input placeholder="Employer" value={f.employer} onChange={e => updateFamily(i, 'employer', e.target.value)} className={inputClass} />
-                  <input placeholder="Occupation" value={f.occupation} onChange={e => updateFamily(i, 'occupation', e.target.value)} className={inputClass} />
-                  <input placeholder="Phone" value={f.phone} onChange={e => updateFamily(i, 'phone', e.target.value)} className={inputClass} />
-                  <input placeholder="Email" value={f.email} onChange={e => updateFamily(i, 'email', e.target.value)} className={inputClass} />
+                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-muted/70 rounded-xl border border-border">
+                  <input placeholder={`${t('studentFields.name')} *`} required value={f.name} onChange={e => updateFamily(i, 'name', e.target.value)} className={inputClass} />
+                  <input placeholder={`${t('studentFields.relationship')} *`} required value={f.relationship} onChange={e => updateFamily(i, 'relationship', e.target.value)} className={inputClass} />
+                  <input placeholder={`${t('studentFields.nationality')} *`} required value={f.nationality} onChange={e => updateFamily(i, 'nationality', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.employer')} value={f.employer} onChange={e => updateFamily(i, 'employer', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.occupation')} value={f.occupation} onChange={e => updateFamily(i, 'occupation', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.phone')} value={f.phone} onChange={e => updateFamily(i, 'phone', e.target.value)} className={inputClass} />
+                  <input placeholder={t('studentFields.email')} value={f.email} onChange={e => updateFamily(i, 'email', e.target.value)} className={inputClass} />
                   <div className="md:col-span-2 flex justify-end">
                     {familyMembers.length > 1 && (
                       <button type="button" onClick={() => removeFamily(i)} className="text-red-500 text-sm flex items-center gap-1 hover:text-red-700 transition">
-                        <Trash2 className="w-4 h-4" /> Remove
+                        <Trash2 className="w-4 h-4" /> {t('studentForm.remove')}
                       </button>
                     )}
                   </div>
                 </div>
               ))}
               <button type="button" onClick={addFamily} className="text-indigo-600 text-sm flex items-center gap-1.5 mt-2 font-medium hover:text-indigo-800 transition">
-                <Plus className="w-4 h-4" /> Add Family Member
+                <Plus className="w-4 h-4" /> {t('studentForm.addFamilyMember')}
               </button>
             </div>
 
             {/* Notes */}
             <div className={sectionClass}>
-              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">10.</span> Additional Notes</h3>
+              <h3 className={sectionTitle}><span className="text-indigo-600 font-bold">10.</span> {t('studentFields.additionalNotes')}</h3>
               <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className={inputClass} />
             </div>
           </div>
@@ -718,52 +722,52 @@ export default function NewStudentPage() {
           <div className="space-y-6">
             {/* Photo Upload */}
             <div className={sectionClass}>
-              <h3 className="text-lg font-bold text-slate-900 mb-4">Passport Photo</h3>
+              <h3 className="text-lg font-bold text-foreground mb-4">{t('studentForm.passportPhotoTitle')}</h3>
               <div className="flex flex-col items-center">
                 {photoPreview ? (
                   <div className="relative">
-                    <img src={photoPreview} alt="Preview" className="w-32 h-40 object-cover rounded-xl border-2 border-indigo-100 shadow-sm" />
+                    <img src={photoPreview} alt={t('studentForm.photoPreviewAlt')} className="w-32 h-40 object-cover rounded-xl border-2 border-indigo-100 shadow-sm" />
                     <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview('') }} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-md hover:bg-rose-600 transition">
                       <X className="w-3 h-3" />
                     </button>
                   </div>
                 ) : (
-                  <div className="w-32 h-40 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center bg-slate-50/50">
-                    <Image className="w-8 h-8 text-slate-300" />
+                  <div className="w-32 h-40 border-2 border-dashed border-border rounded-xl flex items-center justify-center bg-muted/50">
+                    <Image className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
                 <label className="mt-4 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm cursor-pointer hover:bg-indigo-700 transition shadow-sm font-medium">
                   <Upload className="w-4 h-4 inline mr-1.5" />
-                  Upload Photo
+                  {t('studentForm.uploadPhotoButton')}
                   <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
                 </label>
-                <p className="text-xs text-slate-400 mt-2 text-center">2-inch, white background, under 200KB</p>
+                <p className="text-xs text-muted-foreground mt-2 text-center">{t('studentForm.photoRequirements')}</p>
               </div>
             </div>
 
             {/* Dynamic Document Categories */}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-900">Required Documents</h3>
+              <h3 className="text-lg font-bold text-foreground">{t('studentForm.requiredDocumentsTitle')}</h3>
               {docCategories.map((cat) => {
                 const catDocs = pendingDocs.map((d, idx) => ({ ...d, originalIndex: idx })).filter(d => d.category.key === cat.key)
                 return (
-                  <div key={cat.key} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-                    <div className="bg-slate-50/80 px-4 py-2.5 border-b border-slate-100">
-                      <h4 className="font-medium text-sm text-slate-800">
+                  <div key={cat.key} className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
+                    <div className="bg-muted/80 px-4 py-2.5 border-b border-border">
+                      <h4 className="font-medium text-sm text-foreground">
                         {cat.label}
                         {cat.isRequired && <span className="text-rose-500 ml-1">*</span>}
                       </h4>
                       {cat.description && (
-                        <p className="text-xs text-slate-400 mt-0.5">{cat.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>
                       )}
                     </div>
                     <div className="p-3">
                       {catDocs.length > 0 ? (
                         <div className="space-y-2 mb-2">
                           {catDocs.map((doc) => (
-                            <div key={doc.originalIndex} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                            <div key={doc.originalIndex} className="flex items-center gap-2 p-2 bg-muted rounded-lg">
                               {getDocIcon(doc.category.type)}
-                              <span className="flex-1 text-xs text-slate-700 truncate">{doc.file.name}</span>
+                              <span className="flex-1 text-xs text-foreground truncate">{doc.file.name}</span>
                               <button type="button" onClick={() => removePendingDoc(doc.originalIndex)} className="text-rose-500 hover:text-rose-700 transition">
                                 <X className="w-3 h-3" />
                               </button>
@@ -771,12 +775,12 @@ export default function NewStudentPage() {
                           ))}
                         </div>
                       ) : null}
-                      <label className="flex items-center justify-center gap-2 w-full py-2.5 border border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 transition">
-                        <Upload className="w-4 h-4 text-slate-400" />
-                        <span className="text-xs text-slate-500">Add {cat.label}</span>
+                      <label className="flex items-center justify-center gap-2 w-full py-2.5 border border-dashed border-border rounded-xl cursor-pointer hover:bg-muted transition">
+                        <Upload className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{t('common.add')} {cat.label}</span>
                         <input type="file" accept={cat.accept} className="hidden" onChange={(e) => handleFileSelectForCategory(e, cat)} />
                       </label>
-                      {cat.maxSize && <p className="text-xs text-slate-400 text-center mt-1">Max: {cat.maxSize}</p>}
+                      {cat.maxSize && <p className="text-xs text-muted-foreground text-center mt-1">{t('studentForm.maxSizeLabel')} {cat.maxSize}</p>}
                     </div>
                   </div>
                 )
@@ -784,21 +788,21 @@ export default function NewStudentPage() {
             </div>
 
             <div className="bg-indigo-50/70 rounded-2xl border border-indigo-100 p-5">
-              <h4 className="text-sm font-bold text-indigo-900 mb-1">Tip</h4>
-              <p className="text-xs text-indigo-700 leading-relaxed">All information and documents will be saved together when you click Save Application.</p>
+              <h4 className="text-sm font-bold text-indigo-900 mb-1">{t('studentForm.tip')}</h4>
+              <p className="text-xs text-indigo-700 leading-relaxed">{t('studentForm.tipSaveApplication')}</p>
             </div>
           </div>
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end gap-3 pt-5 border-t bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 sticky bottom-4 backdrop-blur-sm">
-          <Link href="/dashboard/students" className="px-6 py-2.5 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition font-medium">
-            Cancel
+        <div className="flex justify-end gap-3 pt-5 border-t bg-card rounded-2xl shadow-sm border border-border/60 p-5 sticky bottom-4 backdrop-blur-sm">
+          <Link href="/dashboard/students" className="px-6 py-2.5 border border-border rounded-xl text-foreground hover:bg-muted transition font-medium">
+            {t('common.cancel')}
           </Link>
           <button type="submit" disabled={loading} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm">
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             <Save className="w-4 h-4" />
-            Save Application
+            {t('studentForm.saveApplication')}
           </button>
         </div>
       </form>

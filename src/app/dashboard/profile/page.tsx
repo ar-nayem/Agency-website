@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { 
-  ArrowLeft, Camera, Building2, User, Mail, Phone, 
+import {
+  ArrowLeft, Camera, Building2, User, Mail, Phone,
   MessageCircle, Globe, MapPin, Save, Loader2, Upload, ImageIcon
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 interface ProfileData {
   id: string
@@ -35,6 +36,7 @@ interface OrgData {
 
 export default function ProfilePage() {
   const { data: session, update } = useSession()
+  const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState<'profile' | 'organization'>('profile')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -61,7 +63,7 @@ export default function ProfilePage() {
         }
       }
     } catch {
-      toast.error('Failed to load profile')
+      toast.error(t('settings.failedToLoadProfile'))
     } finally {
       setLoading(false)
     }
@@ -84,13 +86,13 @@ export default function ProfilePage() {
         })
       })
       if (res.ok) {
-        toast.success('Profile saved')
+        toast.success(t('settings.profileSavedToast'))
         update()
       } else {
-        toast.error('Failed to save')
+        toast.error(t('settings.failedToSave'))
       }
     } catch {
-      toast.error('Failed to save')
+      toast.error(t('settings.failedToSave'))
     } finally {
       setSaving(false)
     }
@@ -108,14 +110,14 @@ export default function ProfilePage() {
       if (res.ok) {
         const data = await res.json()
         setOrganization(data)
-        toast.success('Organization saved — logo will update in sidebar')
+        toast.success(t('settings.organizationSavedToast'))
         // Force page refresh to update sidebar logo
         window.location.reload()
       } else {
-        toast.error('Failed to save')
+        toast.error(t('settings.failedToSave'))
       }
     } catch {
-      toast.error('Failed to save')
+      toast.error(t('settings.failedToSave'))
     } finally {
       setSaving(false)
     }
@@ -125,7 +127,7 @@ export default function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('Logo must be under 2MB')
+      toast.error(t('settings.logoTooLarge'))
       return
     }
     const reader = new FileReader()
@@ -135,58 +137,60 @@ export default function ProfilePage() {
     reader.readAsDataURL(file)
   }
 
-  const inputClass = "w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-white transition-all"
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1.5"
+  const inputClass = "w-full px-3.5 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-card transition-all"
+  const labelClass = "block text-sm font-medium text-foreground mb-1.5"
 
-  if (loading) return <div className="p-8 text-center text-slate-400">Loading...</div>
+  const roleLabel = profile?.role === 'OWNER' ? t('common.roleOwner') : profile?.role === 'ADMIN' ? t('common.roleAdmin') : t('common.roleAgent')
+
+  if (loading) return <div className="p-8 text-center text-muted-foreground">{t('common.loading')}</div>
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
-        <Link href="/dashboard" className="text-slate-400 hover:text-slate-600 transition p-2 hover:bg-slate-100 rounded-xl">
+        <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition p-2 hover:bg-muted rounded-xl">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Settings & Profile</h1>
-          <p className="text-slate-500 mt-1 text-sm">Manage your personal and organization details</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('settings.profileTitle')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t('settings.profileSubtitle')}</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit mb-6">
+      <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit mb-6">
         <button
           onClick={() => setActiveTab('profile')}
           className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'profile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+            activeTab === 'profile' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <User className="w-4 h-4 inline mr-1.5" />
-          My Profile
+          {t('settings.myProfileTab')}
         </button>
         <button
           onClick={() => setActiveTab('organization')}
           className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'organization' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+            activeTab === 'organization' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Building2 className="w-4 h-4 inline mr-1.5" />
-          Organization
+          {t('settings.organizationTab')}
         </button>
       </div>
 
       {activeTab === 'profile' && profile && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 space-y-6">
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6 space-y-6">
           {/* Avatar */}
           <div className="flex items-center gap-6">
             <div className="relative">
               {profile.avatar ? (
-                <img src={profile.avatar} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-slate-200" />
+                <img src={profile.avatar} alt={t('settings.avatarAlt')} className="w-20 h-20 rounded-full object-cover border-2 border-border" />
               ) : (
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-2xl font-bold">
                   {profile.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              <button 
+              <button
                 onClick={() => {
                   const input = document.createElement('input')
                   input.type = 'file'
@@ -200,102 +204,102 @@ export default function ProfilePage() {
                   }
                   input.click()
                 }}
-                className="absolute -bottom-1 -right-1 bg-white rounded-full p-1.5 shadow-md border border-slate-200 hover:bg-slate-50 transition"
+                className="absolute -bottom-1 -right-1 bg-card rounded-full p-1.5 shadow-md border border-border hover:bg-muted transition"
               >
-                <Camera className="w-3.5 h-3.5 text-slate-600" />
+                <Camera className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">{profile.name}</h3>
-              <p className="text-sm text-slate-500">{profile.email}</p>
+              <h3 className="font-bold text-foreground">{profile.name}</h3>
+              <p className="text-sm text-muted-foreground">{profile.email}</p>
               <span className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${
-                profile.role === 'OWNER' ? 'bg-amber-100 text-amber-700' :
-                profile.role === 'ADMIN' ? 'bg-violet-100 text-violet-700' :
-                'bg-emerald-100 text-emerald-700'
+                profile.role === 'OWNER' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400' :
+                profile.role === 'ADMIN' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400' :
+                'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
               }`}>
-                {profile.role}
+                {roleLabel}
               </span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Full Name</label>
+              <label className={labelClass}>{t('settings.fullNameLabel')}</label>
               <input value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Email</label>
-              <input value={profile.email} disabled className={`${inputClass} bg-slate-50 text-slate-500`} />
+              <label className={labelClass}>{t('settings.emailLabel')}</label>
+              <input value={profile.email} disabled className={`${inputClass} bg-muted text-muted-foreground`} />
             </div>
             <div>
-              <label className={labelClass}>Phone</label>
+              <label className={labelClass}>{t('settings.phoneLabel')}</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input value={profile.phone || ''} onChange={e => setProfile({...profile, phone: e.target.value})} className={`${inputClass} pl-9`} placeholder="+1 234 567 8900" />
+                <Phone className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input value={profile.phone || ''} onChange={e => setProfile({...profile, phone: e.target.value})} className={`${inputClass} pl-9`} placeholder={t('settings.phonePlaceholderExample')} />
               </div>
             </div>
             <div>
-              <label className={labelClass}>WeChat</label>
+              <label className={labelClass}>{t('settings.wechatLabel')}</label>
               <div className="relative">
-                <MessageCircle className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input value={profile.wechat || ''} onChange={e => setProfile({...profile, wechat: e.target.value})} className={`${inputClass} pl-9`} placeholder="WeChat ID" />
+                <MessageCircle className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input value={profile.wechat || ''} onChange={e => setProfile({...profile, wechat: e.target.value})} className={`${inputClass} pl-9`} placeholder={t('settings.wechatIdPlaceholder')} />
               </div>
             </div>
             <div className="md:col-span-2">
-              <label className={labelClass}>Bio / About</label>
-              <textarea 
-                value={profile.bio || ''} 
-                onChange={e => setProfile({...profile, bio: e.target.value})} 
-                rows={3} 
-                className={inputClass} 
-                placeholder="A short description about yourself..."
+              <label className={labelClass}>{t('settings.bioLabel')}</label>
+              <textarea
+                value={profile.bio || ''}
+                onChange={e => setProfile({...profile, bio: e.target.value})}
+                rows={3}
+                className={inputClass}
+                placeholder={t('settings.bioPlaceholder')}
               />
             </div>
           </div>
 
-          <div className="flex justify-end pt-4 border-t border-slate-100">
-            <button 
-              onClick={saveProfile} 
+          <div className="flex justify-end pt-4 border-t border-border">
+            <button
+              onClick={saveProfile}
               disabled={saving}
               className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               <Save className="w-4 h-4" />
-              Save Profile
+              {t('settings.saveProfileBtn')}
             </button>
           </div>
         </div>
       )}
 
       {activeTab === 'organization' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 space-y-6">
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6 space-y-6">
           {/* Logo */}
           <div className="flex items-center gap-6">
             <div className="relative">
               {organization.logo ? (
-                <img src={organization.logo} alt="Logo" className="w-24 h-24 object-contain rounded-xl border border-slate-200 bg-white" />
+                <img src={organization.logo} alt={t('settings.logoAlt')} className="w-24 h-24 object-contain rounded-xl border border-border bg-card" />
               ) : (
-                <div className="w-24 h-24 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200">
-                  <ImageIcon className="w-10 h-10 text-slate-400" />
+                <div className="w-24 h-24 rounded-xl bg-muted flex items-center justify-center border border-border">
+                  <ImageIcon className="w-10 h-10 text-muted-foreground" />
                 </div>
               )}
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1.5 -right-1.5 bg-white rounded-full p-1.5 shadow-md border border-slate-200 hover:bg-slate-50 transition"
+                className="absolute -bottom-1.5 -right-1.5 bg-card rounded-full p-1.5 shadow-md border border-border hover:bg-muted transition"
               >
-                <Upload className="w-3.5 h-3.5 text-slate-600" />
+                <Upload className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoSelect} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">Company Logo</h3>
-              <p className="text-sm text-slate-500 mt-0.5">This logo will appear in the sidebar. Max 2MB.</p>
+              <h3 className="font-bold text-foreground">{t('settings.companyLogoTitle')}</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">{t('settings.companyLogoDesc')}</p>
               {organization.logo && (
-                <button 
+                <button
                   onClick={() => setOrganization(prev => ({...prev, logo: null}))}
                   className="text-xs text-rose-500 hover:text-rose-700 mt-2 font-medium"
                 >
-                  Remove logo
+                  {t('settings.removeLogo')}
                 </button>
               )}
             </div>
@@ -303,108 +307,108 @@ export default function ProfilePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Organization Name</label>
-              <input 
-                value={organization.name} 
-                onChange={e => setOrganization({...organization, name: e.target.value})} 
-                className={inputClass} 
-                placeholder="Your company name"
+              <label className={labelClass}>{t('settings.organizationNameLabel')}</label>
+              <input
+                value={organization.name}
+                onChange={e => setOrganization({...organization, name: e.target.value})}
+                className={inputClass}
+                placeholder={t('settings.organizationNamePlaceholder')}
               />
             </div>
             <div>
-              <label className={labelClass}>Organization Email</label>
+              <label className={labelClass}>{t('settings.organizationEmailLabel')}</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input 
-                  value={organization.email || ''} 
-                  onChange={e => setOrganization({...organization, email: e.target.value})} 
-                  className={`${inputClass} pl-9`} 
-                  placeholder="contact@company.com"
+                <Mail className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input
+                  value={organization.email || ''}
+                  onChange={e => setOrganization({...organization, email: e.target.value})}
+                  className={`${inputClass} pl-9`}
+                  placeholder={t('settings.organizationEmailPlaceholder')}
                 />
               </div>
             </div>
             <div>
-              <label className={labelClass}>Phone</label>
+              <label className={labelClass}>{t('settings.phoneLabel')}</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input 
-                  value={organization.phone || ''} 
-                  onChange={e => setOrganization({...organization, phone: e.target.value})} 
-                  className={`${inputClass} pl-9`} 
-                  placeholder="+1 234 567 8900"
+                <Phone className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input
+                  value={organization.phone || ''}
+                  onChange={e => setOrganization({...organization, phone: e.target.value})}
+                  className={`${inputClass} pl-9`}
+                  placeholder={t('settings.phonePlaceholderExample')}
                 />
               </div>
             </div>
             <div>
-              <label className={labelClass}>WeChat</label>
+              <label className={labelClass}>{t('settings.wechatLabel')}</label>
               <div className="relative">
-                <MessageCircle className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input 
-                  value={organization.wechat || ''} 
-                  onChange={e => setOrganization({...organization, wechat: e.target.value})} 
-                  className={`${inputClass} pl-9`} 
-                  placeholder="Company WeChat"
+                <MessageCircle className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input
+                  value={organization.wechat || ''}
+                  onChange={e => setOrganization({...organization, wechat: e.target.value})}
+                  className={`${inputClass} pl-9`}
+                  placeholder={t('settings.companyWechatPlaceholder')}
                 />
               </div>
             </div>
             <div>
-              <label className={labelClass}>Website</label>
+              <label className={labelClass}>{t('settings.websiteLabel')}</label>
               <div className="relative">
-                <Globe className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input 
-                  value={organization.website || ''} 
-                  onChange={e => setOrganization({...organization, website: e.target.value})} 
-                  className={`${inputClass} pl-9`} 
-                  placeholder="https://company.com"
+                <Globe className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input
+                  value={organization.website || ''}
+                  onChange={e => setOrganization({...organization, website: e.target.value})}
+                  className={`${inputClass} pl-9`}
+                  placeholder={t('settings.websitePlaceholder')}
                 />
               </div>
             </div>
             <div>
-              <label className={labelClass}>Address</label>
+              <label className={labelClass}>{t('settings.addressLabel')}</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input 
-                  value={organization.address || ''} 
-                  onChange={e => setOrganization({...organization, address: e.target.value})} 
-                  className={`${inputClass} pl-9`} 
-                  placeholder="Business address"
+                <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input
+                  value={organization.address || ''}
+                  onChange={e => setOrganization({...organization, address: e.target.value})}
+                  className={`${inputClass} pl-9`}
+                  placeholder={t('settings.addressPlaceholder')}
                 />
               </div>
             </div>
             <div className="md:col-span-2">
-              <label className={labelClass}>Description</label>
-              <textarea 
-                value={organization.description || ''} 
-                onChange={e => setOrganization({...organization, description: e.target.value})} 
-                rows={3} 
-                className={inputClass} 
-                placeholder="About your organization..."
+              <label className={labelClass}>{t('settings.descriptionLabel')}</label>
+              <textarea
+                value={organization.description || ''}
+                onChange={e => setOrganization({...organization, description: e.target.value})}
+                rows={3}
+                className={inputClass}
+                placeholder={t('settings.organizationDescPlaceholder')}
               />
             </div>
             {profile?.role === 'OWNER' && (
               <div className="md:col-span-2">
-                <label className={labelClass}>Welcome Message for New Users</label>
-                <p className="text-xs text-slate-400 mb-1.5">This message will be automatically sent to every new agent or admin when their account is created.</p>
-                <textarea 
-                  value={organization.welcomeMessage || ''} 
-                  onChange={e => setOrganization({...organization, welcomeMessage: e.target.value})} 
-                  rows={3} 
-                  className={inputClass} 
-                  placeholder="Welcome to GLORIE! We're excited to have you on board..."
+                <label className={labelClass}>{t('settings.welcomeMessageLabel')}</label>
+                <p className="text-xs text-muted-foreground mb-1.5">{t('settings.welcomeMessageDesc')}</p>
+                <textarea
+                  value={organization.welcomeMessage || ''}
+                  onChange={e => setOrganization({...organization, welcomeMessage: e.target.value})}
+                  rows={3}
+                  className={inputClass}
+                  placeholder={t('settings.welcomeMessagePlaceholder')}
                 />
               </div>
             )}
           </div>
 
-          <div className="flex justify-end pt-4 border-t border-slate-100">
-            <button 
-              onClick={saveOrganization} 
+          <div className="flex justify-end pt-4 border-t border-border">
+            <button
+              onClick={saveOrganization}
               disabled={saving}
               className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               <Save className="w-4 h-4" />
-              Save Organization
+              {t('settings.saveOrganizationBtn')}
             </button>
           </div>
         </div>

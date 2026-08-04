@@ -26,17 +26,35 @@ export async function POST(req: NextRequest) {
       include: { documents: true }
     })
 
+    const requirements = await prisma.documentRequirement.findMany()
+    const labelByKey = new Map(requirements.map(r => [r.key, r.label]))
+    labelByKey.set('PHOTO', 'Photo')
+
+    const sanitize = (name: string) => name.replace(/[\\/:*?"<>|]/g, '-').trim()
+
     const zip = new JSZip()
 
     for (const student of students) {
-      const studentFolder = zip.folder(`${student.passportFamilyName}-${student.givenName}-${student.id.slice(0, 8)}`)
+      const folderName = sanitize(`${student.serialNumber || student.id.slice(0, 8)}-${student.fullName}`)
+      const studentFolder = zip.folder(folderName)
       if (!studentFolder) continue
+
+      const usedNames = new Map<string, number>()
 
       for (const doc of student.documents) {
         try {
           const filePath = join(process.cwd(), 'public', 'uploads', doc.filename)
           const fileData = await readFile(filePath)
-          studentFolder.file(doc.originalName, fileData)
+
+          const ext = doc.originalName.includes('.') ? doc.originalName.split('.').pop() : ''
+          const baseName = sanitize(labelByKey.get(doc.category) || doc.originalName.replace(/\.[^.]+$/, ''))
+
+          const count = usedNames.get(baseName) || 0
+          usedNames.set(baseName, count + 1)
+          const suffix = count > 0 ? ` (${count + 1})` : ''
+          const finalName = ext ? `${baseName}${suffix}.${ext}` : `${baseName}${suffix}`
+
+          studentFolder.file(finalName, fileData)
         } catch {
           // Skip files that can't be read
         }

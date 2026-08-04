@@ -9,10 +9,11 @@ import {
   CheckCircle, XCircle, Clock, UserCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 export default function StudentsPage() {
   return (
-    <Suspense fallback={<div className="p-10 text-center text-slate-400 text-sm">Loading...</div>}>
+    <Suspense fallback={<div className="p-10 text-center text-muted-foreground text-sm">Loading...</div>}>
       <StudentsPageInner />
     </Suspense>
   )
@@ -20,6 +21,7 @@ export default function StudentsPage() {
 
 function StudentsPageInner() {
   const { data: session } = useSession()
+  const { t } = useLanguage()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [students, setStudents] = useState<any[]>([])
@@ -56,7 +58,7 @@ function StudentsPageInner() {
       const data = await res.json()
       setStudents(data)
     } catch {
-      toast.error('Failed to load students')
+      toast.error(t('students.failedLoadStudents'))
     } finally {
       setLoading(false)
     }
@@ -76,15 +78,15 @@ function StudentsPageInner() {
       a.href = url
       a.download = `students-export-${Date.now()}.xlsx`
       a.click()
-      toast.success('Export downloaded')
+      toast.success(t('students.exportDownloaded'))
     } catch {
-      toast.error('Export failed')
+      toast.error(t('students.exportFailed'))
     }
   }
 
   async function batchDownload() {
     if (selectedStudents.length === 0) {
-      toast.error('Select students first')
+      toast.error(t('students.selectStudentsFirst'))
       return
     }
     try {
@@ -100,19 +102,28 @@ function StudentsPageInner() {
       a.href = url
       a.download = `documents-batch-${Date.now()}.zip`
       a.click()
-      toast.success('Batch download started')
+      toast.success(t('students.batchDownloadStarted'))
     } catch {
-      toast.error('Batch download failed')
+      toast.error(t('students.batchDownloadFailed'))
     }
   }
 
   const getStatusBadge = (s: string) => {
     const styles: Record<string, string> = {
-      PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
-      APPROVED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      REJECTED: 'bg-rose-100 text-rose-700 border-rose-200'
+      PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
+      APPROVED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
+      REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200'
     }
-    return styles[s] || 'bg-slate-100 text-slate-700 border-slate-200'
+    return styles[s] || 'bg-muted text-foreground border-border'
+  }
+
+  const getStatusLabel = (s: string) => {
+    const labels: Record<string, string> = {
+      PENDING: t('common.statusPending'),
+      APPROVED: t('common.statusApproved'),
+      REJECTED: t('common.statusRejected'),
+    }
+    return labels[s] || s
   }
 
   const getStatusIcon = (s: string) => {
@@ -129,60 +140,60 @@ function StudentsPageInner() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{isAdmin ? 'All Students' : 'My Students'}</h1>
-          <p className="text-slate-500 mt-1 text-sm">Manage and review student applications</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{isAdmin ? t('students.allStudentsTitle') : t('students.myStudentsTitle')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t('students.manageAndReview')}</p>
         </div>
         <Link
           href="/dashboard/students/new"
           className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition flex items-center gap-2 text-sm shadow-sm shadow-indigo-500/20"
         >
           <UserCheck className="w-4 h-4" />
-          Add Student
+          {t('nav.addStudent')}
         </Link>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5">
+      <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5">
         <div className="flex flex-wrap gap-3 items-end">
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Search</label>
+            <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('common.search')}</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search by name, email, passport..."
+                placeholder={t('students.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-slate-50/50"
+                className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-muted/50"
               />
             </div>
           </div>
-          
+
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
+            <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('common.status')}</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-slate-50/50"
+              className="px-3 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-muted/50"
             >
-              <option value="">All Status</option>
-              <option value="PENDING">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
+              <option value="">{t('students.allStatus')}</option>
+              <option value="PENDING">{t('common.statusPending')}</option>
+              <option value="APPROVED">{t('common.statusApproved')}</option>
+              <option value="REJECTED">{t('common.statusRejected')}</option>
             </select>
           </div>
 
           {isAdmin && (
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Agent</label>
+              <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('dashboard.agent')}</label>
               <select
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
-                className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-slate-50/50"
+                className="px-3 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-muted/50"
               >
-                <option value="">All Agents</option>
+                <option value="">{t('students.allAgents')}</option>
                 {agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>{agent.name}</option>
                 ))}
@@ -197,7 +208,7 @@ function StudentsPageInner() {
                 className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-emerald-500/20"
               >
                 <Download className="w-4 h-4" />
-                Export Excel
+                {t('students.exportExcel')}
               </button>
               <button
                 onClick={batchDownload}
@@ -205,7 +216,7 @@ function StudentsPageInner() {
                 className="px-4 py-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition flex items-center gap-2 text-sm font-medium disabled:opacity-50 shadow-sm shadow-violet-500/20"
               >
                 <Download className="w-4 h-4" />
-                Batch Download ({selectedStudents.length})
+                {t('students.batchDownload')} ({selectedStudents.length})
               </button>
             </>
           )}
@@ -213,15 +224,15 @@ function StudentsPageInner() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
+      <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
         {loading ? (
-          <div className="p-10 text-center text-slate-400 text-sm">Loading...</div>
+          <div className="p-10 text-center text-muted-foreground text-sm">{t('common.loading')}</div>
         ) : students.length === 0 ? (
-          <div className="p-10 text-center text-slate-400 text-sm">No students found</div>
+          <div className="p-10 text-center text-muted-foreground text-sm">{t('students.noStudentsFound')}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted">
                 <tr>
                   {isAdmin && (
                     <th className="px-4 py-3.5">
@@ -234,30 +245,30 @@ function StudentsPageInner() {
                             setSelectedStudents([])
                           }
                         }}
-                        className="rounded border-slate-300"
+                        className="rounded border-border"
                       />
                     </th>
                   )}
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Serial No.</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Student</th>
-                  {isAdmin && <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Agent</th>}
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Program</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Documents</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('students.serialNo')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.student')}</th>
+                  {isAdmin && <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.agent')}</th>}
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('students.program')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('common.status')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.documents')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.date')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border">
                 {students.map((student) => (
-                  <tr key={student.id} className="hover:bg-slate-50/60 transition-colors">
+                  <tr key={student.id} className="hover:bg-muted/60 transition-colors">
                     {isAdmin && (
                       <td className="px-4 py-4">
                         <input
                           type="checkbox"
                           checked={selectedStudents.includes(student.id)}
                           onChange={() => toggleSelection(student.id)}
-                          className="rounded border-slate-300"
+                          className="rounded border-border"
                         />
                       </td>
                     )}
@@ -266,27 +277,27 @@ function StudentsPageInner() {
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-semibold text-sm text-slate-900">{student.fullName}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{student.mainEmail}</p>
+                        <p className="font-semibold text-sm text-foreground">{student.fullName}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{student.mainEmail}</p>
                       </div>
                     </td>
                     {isAdmin && (
-                      <td className="px-6 py-4 text-sm text-slate-600">{student.agent?.name}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{student.agent?.name}</td>
                     )}
-                    <td className="px-6 py-4 text-sm text-slate-600">{student.programApplied || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{student.programApplied || '-'}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${getStatusBadge(student.status)}`}>
                         {getStatusIcon(student.status)}
-                        {student.status}
+                        {getStatusLabel(student.status)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
+                    <td className="px-6 py-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1.5">
-                        <FileText className="w-4 h-4 text-slate-400" />
+                        <FileText className="w-4 h-4 text-muted-foreground" />
                         {student.documents?.length || 0}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500">
+                    <td className="px-6 py-4 text-sm text-muted-foreground">
                       {new Date(student.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">

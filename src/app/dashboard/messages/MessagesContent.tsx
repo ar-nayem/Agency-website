@@ -1,5 +1,6 @@
 'use client'
 
+
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -8,6 +9,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 const MENTION_REGEX = /@([A-Za-z]{1,6}-\d{3,})/g
 
@@ -35,6 +37,7 @@ async function resolveMention(serial: string): Promise<MentionStudent | null> {
 }
 
 function MentionChip({ serial }: { serial: string }) {
+  const { t } = useLanguage()
   const [student, setStudent] = useState<MentionStudent | null | undefined>(mentionCache.get(serial))
 
   useEffect(() => {
@@ -49,7 +52,7 @@ function MentionChip({ serial }: { serial: string }) {
     return <span className="opacity-70">@{serial}</span>
   }
   if (!student) {
-    return <span className="opacity-70" title="No access to this file">@{serial}</span>
+    return <span className="opacity-70" title={t('messages.noAccessFile')}>@{serial}</span>
   }
   return (
     <Link
@@ -90,6 +93,7 @@ interface MessageItem {
 
 export default function MessagesContent() {
   const { data: session } = useSession()
+  const { t } = useLanguage()
   const searchParams = useSearchParams()
   const initialWith = searchParams.get('with')
   const initialStudent = searchParams.get('studentId')
@@ -148,7 +152,7 @@ export default function MessagesContent() {
         setConversations(data)
       }
     } catch {
-      toast.error('Failed to load conversations')
+      toast.error(t('messages.failedLoadConversations'))
     } finally {
       setLoading(false)
     }
@@ -177,7 +181,7 @@ export default function MessagesContent() {
         setAgents(data)
       }
     } catch {
-      console.error('Failed to load agents')
+      console.error(t('messages.failedLoadAgents'))
     }
   }
 
@@ -216,12 +220,12 @@ export default function MessagesContent() {
         await fetchConversations()
       } else {
         const data = await res.json()
-        toast.error(data.error || 'Failed to send message')
+        toast.error(data.error || t('messages.failedSendMessage'))
         setMessages(prev => prev.filter(m => m.id !== optimisticId))
         setNewMessage(content)
       }
     } catch {
-      toast.error('Failed to send message')
+      toast.error(t('messages.failedSendMessage'))
       setMessages(prev => prev.filter(m => m.id !== optimisticId))
       setNewMessage(content)
     } finally {
@@ -292,37 +296,37 @@ export default function MessagesContent() {
   )
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-4rem)]">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/dashboard" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition-colors">
+    <div className="max-w-6xl mx-auto h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
+      <div className="hidden sm:flex items-center gap-4 mb-6">
+        <Link href="/dashboard" className="text-muted-foreground hover:text-foreground p-2 rounded-xl hover:bg-muted transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Messages</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Communicate with your team</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('messages.title')}</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">{t('messages.subtitle')}</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden flex h-[calc(100%-4rem)]">
+      <div className="bg-card sm:rounded-2xl shadow-sm border border-border/60 overflow-hidden flex h-full sm:h-[calc(100%-4rem)]">
         {/* Sidebar - Conversations */}
-        <div className="w-80 border-r border-slate-100 flex flex-col">
-          <div className="p-4 border-b border-slate-100">
+        <div className={`w-full md:w-80 border-r border-border flex-col ${selectedPartner ? 'hidden md:flex' : 'flex'}`}>
+          <div className="p-4 border-b border-border">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-slate-900 text-sm">Conversations</h2>
+              <h2 className="font-semibold text-foreground text-sm">{t('messages.conversations')}</h2>
               <button
                 onClick={() => setShowNewChat(!showNewChat)}
                 className="text-sm text-indigo-600 hover:text-indigo-700 font-medium bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors"
               >
-                + New
+                {t('messages.newChat')}
               </button>
             </div>
             {showNewChat && (
-              <div className="mb-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <p className="text-xs text-slate-500 mb-1.5 font-medium">
-                  {isAdmin ? 'Select a person:' : 'Select an admin:'}
+              <div className="mb-2 p-3 bg-muted rounded-xl border border-border">
+                <p className="text-xs text-muted-foreground mb-1.5 font-medium">
+                  {isAdmin ? t('messages.selectPerson') : t('messages.selectAdmin')}
                 </p>
                 <select
-                  className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-card focus:ring-2 focus:ring-indigo-500 outline-none"
                   onChange={(e) => {
                     if (e.target.value) {
                       const agent = agents.find(a => a.id === e.target.value)
@@ -334,7 +338,7 @@ export default function MessagesContent() {
                   }}
                   value=""
                 >
-                  <option value="">Choose recipient...</option>
+                  <option value="">{t('messages.chooseRecipient')}</option>
                   {agents.map(a => (
                     <option key={a.id} value={a.id}>{a.name} ({a.role})</option>
                   ))}
@@ -345,18 +349,18 @@ export default function MessagesContent() {
 
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="p-8 text-center text-slate-400">
+              <div className="p-8 text-center text-muted-foreground">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                <p className="text-sm">Loading...</p>
+                <p className="text-sm">{t('common.loading')}</p>
               </div>
             ) : conversations.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">
+              <div className="p-8 text-center text-muted-foreground">
                 <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No conversations yet</p>
-                <p className="text-xs mt-1 text-slate-400">Click &quot;New&quot; to start a message</p>
+                <p className="text-sm">{t('messages.noConversationsYet')}</p>
+                <p className="text-xs mt-1 text-muted-foreground">{t('messages.clickNewToStart')}</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-border">
                 {conversations.map((conv) => (
                   <button
                     key={`${conv.partner.id}-${conv.student?.id || 'general'}`}
@@ -365,7 +369,7 @@ export default function MessagesContent() {
                       setSelectedStudent(conv.student?.id || null)
                       setNewChatPartnerName(null)
                     }}
-                    className={`w-full text-left p-4 hover:bg-slate-50 transition flex items-start gap-3 ${
+                    className={`w-full text-left p-4 hover:bg-muted transition flex items-start gap-3 ${
                       selectedPartner === conv.partner.id && selectedStudent === (conv.student?.id || null)
                         ? 'bg-indigo-50/60 hover:bg-indigo-50/60'
                         : ''
@@ -376,7 +380,7 @@ export default function MessagesContent() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <p className="font-semibold text-sm text-slate-900 truncate">
+                        <p className="font-semibold text-sm text-foreground truncate">
                           {getConversationLabel(conv)}
                         </p>
                         {conv.unreadCount > 0 && (
@@ -385,10 +389,10 @@ export default function MessagesContent() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 truncate mt-1">
-                        {conv.lastMessage?.content || 'No messages'}
+                      <p className="text-xs text-muted-foreground truncate mt-1">
+                        {conv.lastMessage?.content || t('messages.noMessages')}
                       </p>
-                      <p className="text-[11px] text-slate-300 mt-1">
+                      <p className="text-[11px] text-muted-foreground mt-1">
                         {conv.lastMessage?.createdAt ? formatTime(conv.lastMessage.createdAt) : ''}
                       </p>
                     </div>
@@ -400,27 +404,33 @@ export default function MessagesContent() {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col">
+        <div className={`flex-1 flex-col min-w-0 ${selectedPartner ? 'flex' : 'hidden md:flex'}`}>
           {selectedPartner && (activeConversation || newChatPartnerName) ? (
             <>
               {/* Chat Header */}
-              <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+              <div className="p-4 border-b border-border flex items-center gap-3">
+                <button
+                  onClick={() => { setSelectedPartner(null); setSelectedStudent(null); setNewChatPartnerName(null) }}
+                  className="md:hidden p-1.5 -ml-1 rounded-lg text-muted-foreground hover:bg-muted shrink-0"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold text-sm shadow-sm shrink-0">
                   {(activeConversation?.partner.name || newChatPartnerName || '?').charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900 text-sm">
+                  <p className="font-semibold text-foreground text-sm">
                     {activeConversation?.partner.name || newChatPartnerName}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-muted-foreground">
                     {activeConversation ? (
                       <>
                         {activeConversation.partner.role}
                         {activeConversation.student && (
-                          <span> · {activeConversation.student.fullName} <span className="font-mono text-indigo-600 font-semibold">[{activeConversation.student.serialNumber || 'No Serial'}]</span></span>
+                          <span> · {activeConversation.student.fullName} <span className="font-mono text-indigo-600 font-semibold">[{activeConversation.student.serialNumber || t('messages.noSerialShort')}]</span></span>
                         )}
                       </>
-                    ) : 'New conversation'}
+                    ) : t('messages.newConversation')}
                   </p>
                 </div>
               </div>
@@ -428,14 +438,14 @@ export default function MessagesContent() {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messagesLoading ? (
-                  <div className="text-center text-slate-400 py-12">
+                  <div className="text-center text-muted-foreground py-12">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                    <p className="text-sm">Loading messages...</p>
+                    <p className="text-sm">{t('common.loading')}</p>
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="text-center text-slate-400 py-12">
+                  <div className="text-center text-muted-foreground py-12">
                     <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No messages yet. Start the conversation!</p>
+                    <p className="text-sm">{t('messages.noMessagesYet')}</p>
                   </div>
                 ) : (
                   messages.map((msg, i) => {
@@ -449,11 +459,11 @@ export default function MessagesContent() {
                             <div className={`px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap break-words ${
                               isMine
                                 ? 'bg-indigo-600 text-white rounded-br-md'
-                                : 'bg-slate-100 text-slate-800 rounded-bl-md'
+                                : 'bg-muted text-foreground rounded-bl-md'
                             } ${msg.id.startsWith('optimistic-') ? 'opacity-60' : ''}`}>
                               {renderMessageContent(msg.content)}
                             </div>
-                            <p className={`text-[11px] text-slate-400 mt-1 ${isMine ? 'text-right' : 'text-left'}`}>
+                            <p className={`text-[11px] text-muted-foreground mt-1 ${isMine ? 'text-right' : 'text-left'}`}>
                               {formatTime(msg.createdAt)}
                             </p>
                           </div>
@@ -466,22 +476,22 @@ export default function MessagesContent() {
               </div>
 
               {/* Input */}
-              <div className="p-4 border-t border-slate-100 relative">
+              <div className="p-4 border-t border-border relative">
                 {mentionOpen && mentionResults.length > 0 && (
-                  <div className="absolute bottom-full left-4 right-4 mb-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto z-10">
-                    <p className="px-3 pt-2 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Mention a file
+                  <div className="absolute bottom-full left-4 right-4 mb-2 bg-card border border-border rounded-xl shadow-lg max-h-56 overflow-y-auto z-10">
+                    <p className="px-3 pt-2 pb-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      {t('messages.mentionFile')}
                     </p>
                     {mentionResults.map(s => (
                       <button
                         key={s.id}
                         type="button"
                         onMouseDown={e => { e.preventDefault(); insertMention(s) }}
-                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-left transition"
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted text-left transition"
                       >
                         <FileText className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                        <span className="font-mono text-xs font-semibold text-indigo-600">{s.serialNumber || 'No serial'}</span>
-                        <span className="text-sm text-slate-700 truncate">{s.fullName}</span>
+                        <span className="font-mono text-xs font-semibold text-indigo-600">{s.serialNumber || t('messages.noSerial')}</span>
+                        <span className="text-sm text-foreground truncate">{s.fullName}</span>
                       </button>
                     ))}
                   </div>
@@ -498,9 +508,9 @@ export default function MessagesContent() {
                         sendMessage()
                       }
                     }}
-                    placeholder="Type a message... use @GL-00001 to mention a file"
+                    placeholder={t('messages.typeMessage')}
                     rows={1}
-                    className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-slate-50/50 resize-none max-h-32"
+                    className="flex-1 px-4 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-muted/50 resize-none max-h-32"
                   />
                   <button
                     onClick={sendMessage}
@@ -513,11 +523,11 @@ export default function MessagesContent() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400">
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <MessageSquare className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-lg font-medium text-slate-500">Select a conversation</p>
-                <p className="text-sm mt-1 text-slate-400">Choose from the sidebar to view messages</p>
+                <p className="text-lg font-medium text-muted-foreground">{t('messages.selectConversation')}</p>
+                <p className="text-sm mt-1 text-muted-foreground">{t('messages.chooseFromSidebar')}</p>
               </div>
             </div>
           )}

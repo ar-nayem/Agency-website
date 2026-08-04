@@ -1,0 +1,31 @@
+export const en = {
+  title: 'GLORIE Portal',
+  subtitle: 'Student Application Management',
+  emailOrUsername: 'Email or Username',
+  emailPlaceholder: 'Enter your email or username',
+  password: 'Password',
+  passwordPlaceholder: 'Enter your password',
+  signIn: 'Sign In',
+  signingIn: 'Signing in...',
+  welcomeBack: 'Welcome back!',
+  invalidCredentials: 'Invalid email/username or password',
+  somethingWrong: 'Something went wrong',
+  contactSupport: 'Contact Support',
+  footer: 'GLORIE Student Portal v1.0',
+}
+
+export const zh = {
+  title: 'GLORIE 门户',
+  subtitle: '学生申请管理系统',
+  emailOrUsername: '邮箱或用户名',
+  emailPlaceholder: '请输入邮箱或用户名',
+  password: '密码',
+  passwordPlaceholder: '请输入密码',
+  signIn: '登录',
+  signingIn: '登录中...',
+  welcomeBack: '欢迎回来！',
+  invalidCredentials: '邮箱/用户名或密码错误',
+  somethingWrong: '出错了，请重试',
+  contactSupport: '联系客服',
+  footer: 'GLORIE 学生门户 v1.0',
+}

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Upload, FileText, Trash2, Loader2, Video, FileImage } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 interface DocCategory {
   id: string
@@ -20,6 +21,7 @@ interface DocCategory {
 export default function DocumentsPage() {
   const { id } = useParams()
   const router = useRouter()
+  const { t } = useLanguage()
   const [student, setStudent] = useState<any>(null)
   const [categories, setCategories] = useState<DocCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,7 +39,7 @@ export default function DocumentsPage() {
       const data = await res.json()
       setStudent(data)
     } catch {
-      toast.error('Failed to load student')
+      toast.error(t('students.failedLoadStudent'))
     } finally {
       setLoading(false)
     }
@@ -51,7 +53,7 @@ export default function DocumentsPage() {
         setCategories(data)
       }
     } catch {
-      toast.error('Failed to load document categories')
+      toast.error(t('studentForm.failedLoadDocCategories'))
     }
   }
 
@@ -74,13 +76,13 @@ export default function DocumentsPage() {
       })
 
       if (res.ok) {
-        toast.success(`${category.label} uploaded`)
+        toast.success(`${category.label} ${t('students.documentUploaded')}`)
         fetchStudent()
       } else {
-        toast.error('Upload failed')
+        toast.error(t('students.uploadFailed'))
       }
     } catch {
-      toast.error('Upload failed')
+      toast.error(t('students.uploadFailed'))
     } finally {
       setUploadingCategory(null)
       e.target.value = ''
@@ -88,17 +90,17 @@ export default function DocumentsPage() {
   }
 
   async function deleteDocument(docId: string) {
-    if (!confirm('Delete this document?')) return
+    if (!confirm(t('students.deleteDocumentConfirm'))) return
     try {
       const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE', credentials: 'include' })
       if (res.ok) {
-        toast.success('Document deleted')
+        toast.success(t('students.documentDeleted'))
         fetchStudent()
       } else {
-        toast.error('Delete failed')
+        toast.error(t('students.deleteFailed'))
       }
     } catch {
-      toast.error('Delete failed')
+      toast.error(t('students.deleteFailed'))
     }
   }
 
@@ -106,19 +108,26 @@ export default function DocumentsPage() {
     return student?.documents?.filter((d: any) => d.category === categoryKey) || []
   }
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>
-  if (!student) return <div className="p-8 text-center">Student not found</div>
+  function downloadName(doc: any, label: string, index: number, total: number) {
+    const ext = doc.originalName.includes('.') ? doc.originalName.split('.').pop() : ''
+    const safeLabel = label.replace(/[\\/:*?"<>|]/g, '-').trim()
+    const suffix = total > 1 ? ` (${index + 1})` : ''
+    return ext ? `${safeLabel}${suffix}.${ext}` : `${safeLabel}${suffix}`
+  }
+
+  if (loading) return <div className="p-8 text-center">{t('common.loading')}</div>
+  if (!student) return <div className="p-8 text-center">{t('students.studentNotFound')}</div>
 
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link href={`/dashboard/students/${id}`} className="text-gray-500 hover:text-gray-700">
+        <Link href={`/dashboard/students/${id}`} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Upload Documents</h1>
-          <p className="text-gray-500 mt-1">{student.fullName}</p>
+          <h1 className="text-2xl font-bold text-foreground">{t('students.uploadDocumentsTitle')}</h1>
+          <p className="text-muted-foreground mt-1">{student.fullName}</p>
         </div>
       </div>
 
@@ -128,15 +137,15 @@ export default function DocumentsPage() {
           const isUploading = uploadingCategory === cat.key
 
           return (
-            <div key={cat.key} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div key={cat.key} className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
               {/* Category Header */}
-              <div className="bg-gray-50 px-5 py-3 border-b border-gray-100">
-                <h3 className="font-semibold text-gray-900">
+              <div className="bg-muted px-5 py-3 border-b border-border">
+                <h3 className="font-semibold text-foreground">
                   {cat.label}
                   {cat.isRequired && <span className="text-red-500 ml-1">*</span>}
                 </h3>
                 {cat.description && (
-                  <p className="text-xs text-gray-500 mt-1">{cat.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{cat.description}</p>
                 )}
               </div>
 
@@ -144,7 +153,9 @@ export default function DocumentsPage() {
               <div className="p-5">
                 {docs.length > 0 ? (
                   <div className="flex flex-wrap gap-4">
-                    {docs.map((doc: any) => (
+                    {docs.map((doc: any, idx: number) => {
+                      const niceName = downloadName(doc, cat.label, idx, docs.length)
+                      return (
                       <div key={doc.id} className="flex flex-col items-center w-28">
                         <div className="w-20 h-24 bg-red-50 rounded-lg flex items-center justify-center border border-red-100">
                           {doc.type === 'VIDEO' ? (
@@ -155,32 +166,33 @@ export default function DocumentsPage() {
                             <FileText className="w-8 h-8 text-red-400" />
                           )}
                         </div>
-                        <p className="text-xs text-blue-600 mt-2 text-center truncate w-full" title={doc.originalName}>
-                          {doc.originalName.length > 20 ? doc.originalName.substring(0, 20) + '...' : doc.originalName}
+                        <p className="text-xs text-blue-600 mt-2 text-center truncate w-full" title={niceName}>
+                          {niceName.length > 20 ? niceName.substring(0, 20) + '...' : niceName}
                         </p>
-                        <p className="text-xs text-gray-400">{new Date(doc.createdAt).toISOString().split('T')[0]}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toISOString().split('T')[0]}</p>
                         <div className="flex gap-2 mt-1">
-                          <a href={`/uploads/${doc.filename}`} download className="text-xs text-blue-600 hover:underline">Download</a>
-                          <button onClick={() => deleteDocument(doc.id)} className="text-xs text-red-500 hover:underline">Delete</button>
+                          <a href={`/uploads/${doc.filename}`} download={niceName} className="text-xs text-blue-600 hover:underline">{t('common.download')}</a>
+                          <button onClick={() => deleteDocument(doc.id)} className="text-xs text-red-500 hover:underline">{t('common.delete')}</button>
                         </div>
                       </div>
-                    ))}
+                      )
+                    })}
                     {/* Add more button */}
-                    <label className="w-28 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition">
-                      <Upload className="w-6 h-6 text-gray-400 mb-1" />
-                      <span className="text-xs text-gray-500">Add More</span>
+                    <label className="w-28 h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted transition">
+                      <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                      <span className="text-xs text-muted-foreground">{t('students.addMore')}</span>
                       <input type="file" accept={cat.accept} className="hidden" onChange={(e) => handleUpload(e, cat)} />
                     </label>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted transition">
                     {isUploading ? (
-                      <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                      <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
                     ) : (
                       <>
-                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-500">Click to upload {cat.label}</span>
-                        {cat.maxSize && <span className="text-xs text-gray-400 mt-1">Max size: {cat.maxSize}</span>}
+                        <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                        <span className="text-sm text-muted-foreground">{t('students.clickToUpload')} {cat.label}</span>
+                        {cat.maxSize && <span className="text-xs text-muted-foreground mt-1">{t('students.maxSize')}: {cat.maxSize}</span>}
                       </>
                     )}
                     <input type="file" accept={cat.accept} className="hidden" onChange={(e) => handleUpload(e, cat)} disabled={isUploading} />
@@ -192,9 +204,9 @@ export default function DocumentsPage() {
         })}
 
         {categories.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
+          <div className="text-center py-12 text-muted-foreground">
             <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>No document categories configured</p>
+            <p>{t('students.noCategoriesConfigured')}</p>
           </div>
         )}
       </div>
@@ -202,7 +214,7 @@ export default function DocumentsPage() {
       {/* Done Button */}
       <div className="mt-8 flex justify-end">
         <Link href={`/dashboard/students/${id}`} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          Done
+          {t('common.done')}
         </Link>
       </div>
     </div>
