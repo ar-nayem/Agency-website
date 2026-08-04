@@ -6,6 +6,10 @@ import { prisma } from '@/src/lib/prisma'
 
 const inter = Inter({ subsets: ['latin'] })
 
+// The title pulls the org name from the DB, which the owner can edit at any time —
+// force dynamic rendering so a name change shows up without needing a rebuild.
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata(): Promise<Metadata> {
   let orgName = 'Chengdu Dream Fly Edu'
   try {
