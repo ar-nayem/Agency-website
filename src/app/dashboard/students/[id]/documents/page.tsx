@@ -171,6 +171,9 @@ export default function DocumentsPage() {
                         </p>
                         <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toISOString().split('T')[0]}</p>
                         <div className="flex gap-2 mt-1">
+                          {doc.type !== 'ZIP' && (
+                            <a href={`/uploads/${doc.filename}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">{t('common.view')}</a>
+                          )}
                           <a href={`/uploads/${doc.filename}`} download={niceName} className="text-xs text-blue-600 hover:underline">{t('common.download')}</a>
                           <button onClick={() => deleteDocument(doc.id)} className="text-xs text-red-500 hover:underline">{t('common.delete')}</button>
                         </div>

@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
-  MessageSquare, Send, ArrowLeft, Loader2, FileText, Paperclip, Smile, X, Download, FileVideo, Archive, ChevronDown, ChevronUp
+  MessageSquare, Send, ArrowLeft, Loader2, FileText, Paperclip, Smile, X, Download, FileVideo, Archive, ChevronDown, ChevronUp, Eye
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -105,9 +105,19 @@ function MessageAttachmentView({
 
   if (type === 'IMAGE') {
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" download={name || undefined}>
-        <img src={url} alt={name || 'image'} className="max-w-full max-h-64 w-auto object-cover" />
-      </a>
+      <div className="relative group">
+        <a href={url} target="_blank" rel="noopener noreferrer" title={t('messages.viewFile')}>
+          <img src={url} alt={name || 'image'} className="max-w-full max-h-64 w-auto object-cover" />
+        </a>
+        <a
+          href={url}
+          download={name || undefined}
+          title={t('messages.downloadFile')}
+          className="absolute bottom-1.5 right-1.5 p-1.5 rounded-md bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+        >
+          <Download className="w-3.5 h-3.5" />
+        </a>
+      </div>
     )
   }
   if (type === 'VIDEO') {
@@ -183,21 +193,29 @@ function MessageAttachmentView({
   }
 
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      download={name || undefined}
-      title={t('messages.downloadFile')}
-      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-black/5 transition-colors"
-    >
-      <FileText className="w-8 h-8 shrink-0 opacity-80" />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">{name || 'Document.pdf'}</p>
-        {typeof size === 'number' && <p className="text-xs opacity-70">{formatFileSize(size)}</p>}
-      </div>
-      <Download className="w-4 h-4 shrink-0 opacity-70" />
-    </a>
+    <div className="flex items-center gap-2.5 px-3 py-2.5">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={t('messages.viewFile')}
+        className="flex items-center gap-2.5 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+      >
+        <FileText className="w-8 h-8 shrink-0 opacity-80" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium truncate">{name || 'Document.pdf'}</p>
+          {typeof size === 'number' && <p className="text-xs opacity-70">{formatFileSize(size)}</p>}
+        </div>
+      </a>
+      <a
+        href={url}
+        download={name || undefined}
+        title={t('messages.downloadFile')}
+        className="p-1 rounded-md hover:bg-black/10 transition-colors shrink-0"
+      >
+        <Download className="w-4 h-4 opacity-70" />
+      </a>
+    </div>
   )
 }
 

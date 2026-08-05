@@ -13,8 +13,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const where: any = { role: { not: 'DELETED' } }
+    if (user.role === 'ADMIN') {
+      const managedCount = await prisma.user.count({ where: { managedByAdminId: user.id } })
+      // Once the owner has assigned at least one agent to this admin, narrow their
+      // roster to just that team. Unassigned admins keep seeing everyone (unchanged default).
+      if (managedCount > 0) where.managedByAdminId = user.id
+    }
+
     const users = await prisma.user.findMany({
-      where: { role: { not: 'DELETED' } },
+      where,
       select: {
         id: true,
         name: true,
@@ -22,6 +30,8 @@ export async function GET(req: NextRequest) {
         role: true,
         isActive: true,
         createdAt: true,
+        managedByAdminId: true,
+        managedByAdmin: { select: { id: true, name: true } },
         _count: {
           select: { students: true }
         }

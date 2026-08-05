@@ -10,6 +10,9 @@ export const en = {
   importFromExcel: 'Import from Excel',
   importSuccess: 'Student created from Excel file',
   importFailed: 'Failed to import Excel file',
+  importBulkSuccess: '{count} students created from Excel file',
+  importPartialFailed: '{count} rows failed to import:',
+  importRowLabel: 'Row {row}',
   updateStudentInfoBelow: 'Update the student information below',
   loadingStudentData: 'Loading student data...',
 
@@ -75,6 +78,9 @@ export const zh = {
   importFromExcel: '从 Excel 导入',
   importSuccess: '已通过 Excel 文件创建学生',
   importFailed: '导入 Excel 文件失败',
+  importBulkSuccess: '已从 Excel 文件创建 {count} 名学生',
+  importPartialFailed: '{count} 行导入失败：',
+  importRowLabel: '第 {row} 行',
   updateStudentInfoBelow: '请在下方更新学生信息',
   loadingStudentData: '正在加载学生信息...',
 

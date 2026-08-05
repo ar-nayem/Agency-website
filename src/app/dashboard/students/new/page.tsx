@@ -246,8 +246,24 @@ export default function NewStudentPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        toast.success(t('studentForm.importSuccess'))
-        router.push(`/dashboard/students/${data.id}`)
+        const created = data.created || []
+        const failed = data.failed || []
+        if (created.length === 1 && failed.length === 0) {
+          toast.success(t('studentForm.importSuccess'))
+          router.push(`/dashboard/students/${created[0].id}`)
+          return
+        }
+        if (created.length > 0) {
+          toast.success(t('studentForm.importBulkSuccess').replace('{count}', String(created.length)))
+        }
+        if (failed.length > 0) {
+          const detail = failed.map((f: any) => `${t('studentForm.importRowLabel').replace('{row}', String(f.row))} (${f.name}): ${f.error}`).join('\n')
+          toast.error(`${t('studentForm.importPartialFailed').replace('{count}', String(failed.length))}\n${detail}`, { duration: 10000 })
+        }
+        if (created.length > 0) router.push('/dashboard/students')
+      } else if (Array.isArray(data.failed) && data.failed.length > 0) {
+        const detail = data.failed.map((f: any) => `${t('studentForm.importRowLabel').replace('{row}', String(f.row))} (${f.name}): ${f.error}`).join('\n')
+        toast.error(`${t('studentForm.importFailed')}\n${detail}`, { duration: 10000 })
       } else {
         toast.error(data.error || t('studentForm.importFailed'))
       }

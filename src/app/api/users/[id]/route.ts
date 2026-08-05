@@ -13,16 +13,48 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { id } = await params
     const body = await req.json()
+
+    // Whitelist: never let a raw request body reach prisma.update directly —
+    // that would let a `password` field bypass hashing and land in the DB as plaintext.
+    const data: Record<string, unknown> = {}
+    if (typeof body.name === 'string') data.name = body.name
+    if (typeof body.email === 'string') data.email = body.email
+    if (typeof body.isActive === 'boolean') data.isActive = body.isActive
+    if (typeof body.role === 'string') data.role = body.role
+
+    if ('managedByAdminId' in body) {
+      if (user.role !== 'OWNER') {
+        return NextResponse.json({ error: 'Only the owner can assign agents to admins' }, { status: 403 })
+      }
+      const managedByAdminId = body.managedByAdminId
+      if (managedByAdminId === null) {
+        data.managedByAdminId = null
+      } else if (typeof managedByAdminId === 'string') {
+        const [target, admin] = await Promise.all([
+          prisma.user.findUnique({ where: { id }, select: { role: true } }),
+          prisma.user.findUnique({ where: { id: managedByAdminId }, select: { role: true } }),
+        ])
+        if (!target || target.role !== 'AGENT') {
+          return NextResponse.json({ error: 'Only agent accounts can be assigned to an admin' }, { status: 400 })
+        }
+        if (!admin || admin.role !== 'ADMIN') {
+          return NextResponse.json({ error: 'Can only assign to an admin account' }, { status: 400 })
+        }
+        data.managedByAdminId = managedByAdminId
+      }
+    }
+
     const updated = await prisma.user.update({
       where: { id },
-      data: body,
+      data,
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
         isActive: true,
-        createdAt: true
+        createdAt: true,
+        managedByAdminId: true,
       }
     })
     return NextResponse.json(updated)
@@ -56,6 +88,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     // and its personal details are scrubbed. Avoids breaking FK integrity on Message/Document/ActivityLog.
     await prisma.$transaction([
       prisma.organizationProfile.deleteMany({ where: { userId: id } }),
+      // Agents managed by a deleted admin fall back to "unassigned" rather than
+      // staying silently pinned to a now-anonymized account.
+      prisma.user.updateMany({ where: { managedByAdminId: id }, data: { managedByAdminId: null } }),
       prisma.user.update({
         where: { id },
         data: {

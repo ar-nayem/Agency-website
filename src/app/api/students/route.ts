@@ -20,9 +20,18 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search')
 
     const where: any = {}
-    
+
     if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
       where.agentId = user.id
+    } else if (user.role === 'ADMIN') {
+      const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
+      const allowedIds = managed.length > 0 ? [...managed.map(m => m.id), user.id] : null
+      // Unassigned admins (no team configured yet) keep seeing every student — unchanged default.
+      if (agentId) {
+        where.agentId = allowedIds && !allowedIds.includes(agentId) ? '__none__' : agentId
+      } else if (allowedIds) {
+        where.agentId = { in: allowedIds }
+      }
     } else if (agentId) {
       where.agentId = agentId
     }

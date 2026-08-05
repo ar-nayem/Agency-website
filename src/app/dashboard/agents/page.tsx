@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Plus, Trash2, UserCheck, UserX, Loader2,
-  Mail, User, Key, Search
+  Mail, User, Key, Search, Copy, Check, Dices, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -23,6 +23,12 @@ export default function AgentsPage() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [resetTarget, setResetTarget] = useState<any>(null)
+  const [resetCustom, setResetCustom] = useState('')
+  const [resetResult, setResetResult] = useState<string | null>(null)
+  const [resetSubmitting, setResetSubmitting] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [assigningId, setAssigningId] = useState<string | null>(null)
 
   useEffect(() => {
     if (session?.user?.role !== 'OWNER') {
@@ -106,6 +112,76 @@ export default function AgentsPage() {
       toast.error(t('agentsPage.deleteFailed'))
     }
   }
+
+  async function assignManager(agentId: string, adminId: string | null) {
+    setAssigningId(agentId)
+    try {
+      const res = await fetch(`/api/users/${agentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ managedByAdminId: adminId })
+      })
+      if (res.ok) {
+        toast.success(t('agentsPage.managerUpdated'))
+        fetchAgents()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || t('agentsPage.updateFailed'))
+      }
+    } catch {
+      toast.error(t('agentsPage.updateFailed'))
+    } finally {
+      setAssigningId(null)
+    }
+  }
+
+  function openResetModal(u: any) {
+    setResetTarget(u)
+    setResetCustom('')
+    setResetResult(null)
+  }
+
+  function closeResetModal() {
+    setResetTarget(null)
+    setResetCustom('')
+    setResetResult(null)
+    setCopied(false)
+  }
+
+  async function submitReset() {
+    if (!resetTarget) return
+    setResetSubmitting(true)
+    try {
+      const res = await fetch(`/api/users/${resetTarget.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(resetCustom.trim() ? { password: resetCustom.trim() } : {})
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setResetResult(data.password)
+        setCopied(false)
+      } else {
+        toast.error(data.error || t('agentsPage.resetFailed'))
+      }
+    } catch {
+      toast.error(t('agentsPage.resetFailed'))
+    } finally {
+      setResetSubmitting(false)
+    }
+  }
+
+  function copyResult() {
+    if (!resetResult) return
+    navigator.clipboard.writeText(resetResult).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const admins = agents.filter(a => a.role === 'ADMIN')
 
   const filteredAgents = agents.filter((u) => {
     const q = search.trim().toLowerCase()
@@ -263,6 +339,7 @@ export default function AgentsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.name')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.email')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.role')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.managedBy')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('common.status')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.students')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.created')}</th>
@@ -287,6 +364,23 @@ export default function AgentsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
+                    {user.role === 'AGENT' ? (
+                      <select
+                        value={user.managedByAdminId || ''}
+                        disabled={assigningId === user.id}
+                        onChange={(e) => assignManager(user.id, e.target.value || null)}
+                        className="text-xs border border-border rounded-lg px-2 py-1.5 bg-muted/50 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
+                      >
+                        <option value="">{t('agentsPage.unassigned')}</option>
+                        {admins.map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
                       user.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400'
                     }`}>
@@ -299,6 +393,13 @@ export default function AgentsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openResetModal(user)}
+                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                        title={t('agentsPage.resetPassword')}
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => toggleStatus(user.id, user.isActive)}
                         className={`p-1.5 rounded-lg transition ${
@@ -325,6 +426,69 @@ export default function AgentsPage() {
           </table>
         </div>
       </div>
+
+      {resetTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={closeResetModal}>
+          <div className="bg-card rounded-2xl shadow-xl border border-border/60 w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-lg font-semibold text-foreground">{t('agentsPage.resetPassword')}</h3>
+              <button onClick={closeResetModal} className="p-1 text-muted-foreground hover:text-foreground rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{resetTarget.name} · {resetTarget.email}</p>
+
+            {resetResult ? (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">{t('agentsPage.resetResultHint')}</p>
+                <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5 mb-4">
+                  <code className="flex-1 text-sm font-mono text-foreground select-all">{resetResult}</code>
+                  <button onClick={copyResult} className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded-lg transition shrink-0" title={t('common.copy')}>
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+                <button onClick={closeResetModal} className="w-full px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium">
+                  {t('common.done')}
+                </button>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">{t('agentsPage.newPasswordOptional')}</label>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    value={resetCustom}
+                    onChange={e => setResetCustom(e.target.value)}
+                    placeholder={t('agentsPage.leaveBlankToGenerate')}
+                    className="flex-1 px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-muted/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setResetCustom('')}
+                    title={t('agentsPage.generateRandom')}
+                    className="px-3 py-2 border border-border rounded-xl hover:bg-muted transition shrink-0"
+                  >
+                    <Dices className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button onClick={closeResetModal} className="px-4 py-2 border border-border rounded-xl text-foreground hover:bg-muted text-sm">
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={submitReset}
+                    disabled={resetSubmitting}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+                  >
+                    {resetSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {t('agentsPage.setPassword')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

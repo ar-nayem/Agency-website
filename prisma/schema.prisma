@@ -21,6 +21,10 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  managedByAdminId String?
+  managedByAdmin    User?   @relation("AdminManagesAgents", fields: [managedByAdminId], references: [id])
+  managedAgents     User[]  @relation("AdminManagesAgents")
+
   students        Student[]
   uploadedDocs    Document[]      @relation("UploadedBy")
   activityLogs    ActivityLog[]
