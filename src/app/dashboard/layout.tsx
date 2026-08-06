@@ -29,6 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
   const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
+  const [myProfile, setMyProfile] = useState<{ name: string; email: string } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
@@ -57,10 +58,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         })
         .catch(() => {})
 
-      // Personal profile picture (settable by every role, not just the org owner)
+      // Personal profile picture + live name/email (session JWT can go stale if these change after login)
       fetch('/api/profile', { credentials: 'include' })
         .then(r => r.json())
-        .then(data => setMyAvatar(data?.profile?.avatar || null))
+        .then(data => {
+          setMyAvatar(data?.profile?.avatar || null)
+          if (data?.profile) {
+            setMyProfile({ name: data.profile.name, email: data.profile.email })
+          }
+        })
         .catch(() => {})
     }
   }, [session?.user?.id])
@@ -182,12 +188,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               ) : (
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                  {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                  {(myProfile?.name || session?.user?.name)?.charAt(0).toUpperCase() || 'U'}
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{session?.user?.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+                <p className="text-sm font-semibold text-foreground truncate">{myProfile?.name || session?.user?.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{myProfile?.email || session?.user?.email}</p>
               </div>
             </div>
             <div className="px-3 mb-3">
