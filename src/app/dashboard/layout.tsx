@@ -28,6 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
   const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
+  const [myAvatar, setMyAvatar] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
@@ -54,6 +55,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             setUserOrg({ name: data.name || session?.user?.name || 'User', logo: data.logo || null })
           }
         })
+        .catch(() => {})
+
+      // Personal profile picture (settable by every role, not just the org owner)
+      fetch('/api/profile', { credentials: 'include' })
+        .then(r => r.json())
+        .then(data => setMyAvatar(data?.profile?.avatar || null))
         .catch(() => {})
     }
   }, [session?.user?.id])
@@ -109,12 +116,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Sidebar */}
         <aside
-          className={`w-64 bg-card border-r border-border fixed h-full z-40 flex flex-col shadow-sm transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+          className={`w-64 bg-card border-r border-border fixed inset-y-0 left-0 z-40 flex flex-col shadow-sm transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
           {/* Company Logo - Owner's branding */}
-          <div className="p-5 border-b border-border">
+          <div className="p-5 border-b border-border shrink-0">
             <div className="flex items-center justify-between gap-2">
               <Link href="/dashboard" className="flex items-center gap-3 group min-w-0">
                 {ownerOrg.logo ? (
@@ -145,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           {/* Nav */}
-          <nav className="px-3 py-4 space-y-0.5 flex-1 overflow-y-auto">
+          <nav className="px-3 py-4 space-y-0.5 flex-1 min-h-0 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
               return (
@@ -167,11 +174,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </nav>
 
           {/* User section - avatar + name */}
-          <div className="p-4 border-t border-border">
+          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-border shrink-0">
             <div className="flex items-center gap-3 mb-3 px-3">
-              {userOrg.logo ? (
+              {(myAvatar || userOrg.logo) ? (
                 <div className="w-10 h-10 rounded-xl overflow-hidden border border-border bg-card flex items-center justify-center shrink-0">
-                  <img src={userOrg.logo} alt="Avatar" className="w-full h-full object-contain p-0.5" />
+                  <img src={myAvatar || userOrg.logo || ''} alt="Avatar" className={`w-full h-full ${myAvatar ? 'object-cover' : 'object-contain p-0.5'}`} />
                 </div>
               ) : (
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
