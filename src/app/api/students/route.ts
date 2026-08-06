@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getSessionUser, isAdminRole } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotification, studentSubmissionTemplate } from '@/src/lib/email'
 import { logActivity } from '@/src/lib/activity'
@@ -106,5 +106,43 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('POST /api/students error:', error)
     return NextResponse.json({ error: 'Failed to create student', details: error?.message || String(error) }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getSessionUser(req)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!isAdminRole(user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { studentIds } = await req.json()
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return NextResponse.json({ error: 'No students selected' }, { status: 400 })
+    }
+
+    const where: any = { id: { in: studentIds } }
+    if (user.role === 'ADMIN') {
+      const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
+      if (managed.length > 0) {
+        where.agentId = { in: [...managed.map(m => m.id), user.id] }
+      }
+    }
+
+    const toDelete = await prisma.student.findMany({ where, select: { id: true, fullName: true } })
+    if (toDelete.length === 0) {
+      return NextResponse.json({ error: 'No matching students found' }, { status: 404 })
+    }
+
+    await prisma.student.deleteMany({ where: { id: { in: toDelete.map(s => s.id) } } })
+    await logActivity(user.id, 'STUDENT_DELETED', `Batch deleted ${toDelete.length} student(s): ${toDelete.map(s => s.fullName).join(', ')}`)
+
+    return NextResponse.json({ success: true, deletedCount: toDelete.length })
+  } catch (error) {
+    console.error('DELETE /api/students error:', error)
+    return NextResponse.json({ error: 'Failed to delete students' }, { status: 500 })
   }
 }

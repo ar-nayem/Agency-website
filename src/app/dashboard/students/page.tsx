@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, Filter, Download, Eye, FileText,
+  Search, Filter, Download, Eye, FileText, Trash2,
   CheckCircle, XCircle, Clock, UserCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -110,6 +110,30 @@ function StudentsPageInner() {
       toast.success(t('students.batchDownloadStarted'))
     } catch {
       toast.error(t('students.batchDownloadFailed'))
+    }
+  }
+
+  async function batchDelete() {
+    if (selectedStudents.length === 0) {
+      toast.error(t('students.selectStudentsFirst'))
+      return
+    }
+    if (!confirm(`${t('students.batchDeleteConfirm')} (${selectedStudents.length})`)) return
+
+    try {
+      const res = await fetch('/api/students', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ studentIds: selectedStudents })
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      toast.success(`${t('students.batchDeleteSuccess')} (${data.deletedCount})`)
+      setSelectedStudents([])
+      fetchStudents()
+    } catch {
+      toast.error(t('students.batchDeleteFailed'))
     }
   }
 
@@ -238,6 +262,14 @@ function StudentsPageInner() {
               >
                 <Download className="w-4 h-4" />
                 {t('students.batchDownload')} ({selectedStudents.length})
+              </button>
+              <button
+                onClick={batchDelete}
+                disabled={selectedStudents.length === 0}
+                className="px-4 py-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition flex items-center gap-2 text-sm font-medium disabled:opacity-50 shadow-sm shadow-rose-500/20"
+              >
+                <Trash2 className="w-4 h-4" />
+                {t('students.batchDelete')} ({selectedStudents.length})
               </button>
             </>
           )}
