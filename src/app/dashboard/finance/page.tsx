@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import {
   Wallet, TrendingUp, TrendingDown, Clock3, Plus, Download,
-  Search, Trash2, Eye
+  Search, Trash2, Eye, User, Building2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -26,10 +26,11 @@ export default function FinancePage() {
 
   const [transactions, setTransactions] = useState<any[]>([])
   const [students, setStudents] = useState<any[]>([])
-  const [agents, setAgents] = useState<any[]>([])
+  const [people, setPeople] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState<'personal' | 'org'>('personal')
   const [search, setSearch] = useState('')
-  const [agentFilter, setAgentFilter] = useState('')
+  const [personFilter, setPersonFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -51,7 +52,7 @@ export default function FinancePage() {
     if (isAdmin) {
       fetch('/api/users', { credentials: 'include' })
         .then((r) => r.json())
-        .then((data) => setAgents(data.filter((u: any) => u.role === 'AGENT')))
+        .then((data) => setPeople(Array.isArray(data) ? data.filter((u: any) => u.role !== 'DELETED') : []))
         .catch(() => {})
     }
     fetch('/api/students', { credentials: 'include' })
@@ -63,14 +64,17 @@ export default function FinancePage() {
   useEffect(() => {
     if (!session?.user) return
     fetchTransactions()
-  }, [session, search, agentFilter, typeFilter, categoryFilter, statusFilter, dateFrom, dateTo])
+  }, [session, viewMode, search, personFilter, typeFilter, categoryFilter, statusFilter, dateFrom, dateTo])
 
   async function fetchTransactions() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
+      if (viewMode === 'org') {
+        params.set('view', 'org')
+        if (personFilter) params.set('personId', personFilter)
+      }
       if (search) params.set('search', search)
-      if (isAdmin && agentFilter) params.set('agentId', agentFilter)
       if (typeFilter) params.set('type', typeFilter)
       if (categoryFilter) params.set('category', categoryFilter)
       if (statusFilter) params.set('status', statusFilter)
@@ -100,7 +104,10 @@ export default function FinancePage() {
 
   async function exportExcel() {
     const params = new URLSearchParams()
-    if (isAdmin && agentFilter) params.set('agentId', agentFilter)
+    if (viewMode === 'org') {
+      params.set('view', 'org')
+      if (personFilter) params.set('personId', personFilter)
+    }
     if (dateFrom) params.set('dateFrom', dateFrom)
     if (dateTo) params.set('dateTo', dateTo)
     const res = await fetch(`/api/transactions/export?${params}`, { credentials: 'include' })
@@ -152,21 +159,21 @@ export default function FinancePage() {
     return Object.values(map).sort((a, b) => (b.charged - b.spent) - (a.charged - a.spent))
   }, [transactions])
 
-  const perAgent = useMemo(() => {
-    if (!isAdmin) return []
-    const map: Record<string, { agent: any; charged: number; spent: number; students: Set<string> }> = {}
+  const perPerson = useMemo(() => {
+    if (viewMode !== 'org') return []
+    const map: Record<string, { person: any; charged: number; spent: number; students: Set<string> }> = {}
     for (const tx of transactions) {
-      if (!tx.agent) continue
-      if (!map[tx.agentId]) map[tx.agentId] = { agent: tx.agent, charged: 0, spent: 0, students: new Set() }
-      map[tx.agentId].students.add(tx.studentId)
+      if (!tx.createdBy) continue
+      if (!map[tx.createdById]) map[tx.createdById] = { person: tx.createdBy, charged: 0, spent: 0, students: new Set() }
+      map[tx.createdById].students.add(tx.studentId)
       if (tx.status !== 'COMPLETED') continue
-      if (tx.type === 'INCOME') map[tx.agentId].charged += tx.amount
-      else map[tx.agentId].spent += tx.amount
+      if (tx.type === 'INCOME') map[tx.createdById].charged += tx.amount
+      else map[tx.createdById].spent += tx.amount
     }
     return Object.values(map)
-      .map((a) => ({ ...a, studentCount: a.students.size }))
+      .map((p) => ({ ...p, studentCount: p.students.size }))
       .sort((a, b) => (b.charged - b.spent) - (a.charged - a.spent))
-  }, [transactions, isAdmin])
+  }, [transactions, viewMode])
 
   const getStatusBadge = (status: string) => ({
     COMPLETED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
@@ -178,8 +185,8 @@ export default function FinancePage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">{isAdmin ? t('finance.orgFinanceTitle') : t('finance.myFinanceTitle')}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">{t('finance.subtitle')}</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{viewMode === 'org' ? t('finance.orgFinanceTitle') : t('finance.myFinanceTitle')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{viewMode === 'org' ? t('finance.subtitleOrg') : t('finance.subtitleMine')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={exportExcel} className="px-4 py-2.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-xl hover:bg-emerald-100 transition flex items-center gap-2 text-sm font-medium">
@@ -190,6 +197,23 @@ export default function FinancePage() {
           </button>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="inline-flex items-center gap-1 bg-muted rounded-xl p-1">
+          <button
+            onClick={() => { setViewMode('personal'); setPersonFilter('') }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'personal' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <User className="w-4 h-4" /> {t('finance.tabMine')}
+          </button>
+          <button
+            onClick={() => setViewMode('org')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'org' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Building2 className="w-4 h-4" /> {t('finance.tabOrg')}
+          </button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -242,7 +266,7 @@ export default function FinancePage() {
       {/* Filters */}
       <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5 flex flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-[200px]">
-          <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t('common.search') || t('finance.search')}</label>
+          <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t('finance.searchLabel')}</label>
           <div className="relative mt-1.5">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('finance.search')} className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground" />
@@ -287,12 +311,12 @@ export default function FinancePage() {
             <option value="REFUNDED">{t('finance.stRefunded')}</option>
           </select>
         </div>
-        {isAdmin && (
+        {isAdmin && viewMode === 'org' && (
           <div>
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t('finance.filterByAgent')}</label>
-            <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="mt-1.5 px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground">
-              <option value="">{t('finance.allAgents')}</option>
-              {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t('finance.filterByPerson')}</label>
+            <select value={personFilter} onChange={(e) => setPersonFilter(e.target.value)} className="mt-1.5 px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground">
+              <option value="">{t('finance.allPeople')}</option>
+              {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
         )}
@@ -349,16 +373,17 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {isAdmin && perAgent.length > 0 && (
+      {viewMode === 'org' && perPerson.length > 0 && (
         <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
           <div className="px-6 py-5 border-b border-border">
-            <h2 className="text-base font-semibold text-foreground">{t('finance.perAgentBreakdown')}</h2>
+            <h2 className="text-base font-semibold text-foreground">{t('finance.perPersonBreakdown')}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('finance.perPersonBreakdownHint')}</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-muted">
                 <tr>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.agent')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.person')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.studentsWithFinance')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.charged')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.spent')}</th>
@@ -366,9 +391,9 @@ export default function FinancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {perAgent.map((row) => (
-                  <tr key={row.agent.id} className="hover:bg-muted/60 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-foreground">{row.agent.name}</td>
+                {perPerson.map((row) => (
+                  <tr key={row.person.id} className="hover:bg-muted/60 transition-colors">
+                    <td className="px-6 py-4 text-sm font-medium text-foreground">{row.person.name}</td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{row.studentCount}</td>
                     <td className="px-6 py-4 text-sm text-emerald-600 font-medium">{formatMoney(row.charged)}</td>
                     <td className="px-6 py-4 text-sm text-rose-600 font-medium">{formatMoney(row.spent)}</td>
@@ -392,7 +417,7 @@ export default function FinancePage() {
               <tr>
                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.date')}</th>
                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.student')}</th>
-                {isAdmin && <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.agent')}</th>}
+                {viewMode === 'org' && <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.loggedBy')}</th>}
                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.category')}</th>
                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.amount')}</th>
                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.status')}</th>
@@ -401,9 +426,9 @@ export default function FinancePage() {
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
-                <tr><td colSpan={isAdmin ? 7 : 6} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
+                <tr><td colSpan={viewMode === 'org' ? 7 : 6} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
               ) : transactions.length === 0 ? (
-                <tr><td colSpan={isAdmin ? 7 : 6} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('finance.noTransactions')}</td></tr>
+                <tr><td colSpan={viewMode === 'org' ? 7 : 6} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('finance.noTransactions')}</td></tr>
               ) : (
                 transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-muted/60 transition-colors">
@@ -411,7 +436,7 @@ export default function FinancePage() {
                     <td className="px-6 py-4 text-sm">
                       <Link href={`/dashboard/students/${tx.studentId}/finance`} className="font-medium text-indigo-600 hover:text-indigo-700">{tx.student?.fullName}</Link>
                     </td>
-                    {isAdmin && <td className="px-6 py-4 text-sm text-muted-foreground">{tx.agent?.name}</td>}
+                    {viewMode === 'org' && <td className="px-6 py-4 text-sm text-muted-foreground">{tx.createdBy?.name}</td>}
                     <td className="px-6 py-4 text-sm text-muted-foreground">{t(`finance.${CATEGORY_KEYS[tx.category]}`)}</td>
                     <td className={`px-6 py-4 text-sm font-semibold ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {tx.type === 'INCOME' ? '+' : '-'}{formatMoney(tx.amount, tx.currency)}

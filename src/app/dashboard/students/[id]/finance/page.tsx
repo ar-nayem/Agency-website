@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import { ArrowLeft, Plus, Pencil, Trash2, TrendingUp, TrendingDown, Wallet, Clock3 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -13,6 +14,9 @@ export default function StudentFinancePage() {
   const { id } = useParams()
   const studentId = id as string
   const { t } = useLanguage()
+  const { data: session } = useSession()
+  const role = session?.user?.role
+  const isAdmin = role === 'ADMIN' || role === 'OWNER'
   const [student, setStudent] = useState<any>(null)
   const [transactions, setTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,6 +126,7 @@ export default function StudentFinancePage() {
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.date')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.category')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.paymentMethod')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.loggedBy')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.amount')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.status')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('finance.description')}</th>
@@ -134,6 +139,7 @@ export default function StudentFinancePage() {
                     <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(tx.transactionDate).toLocaleDateString()}</td>
                     <td className="px-6 py-4 text-sm text-foreground">{t(`finance.${CATEGORY_KEYS[tx.category]}`)}</td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{tx.paymentMethod ? t(`finance.${PAYMENT_METHOD_KEYS[tx.paymentMethod]}`) : '-'}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{tx.createdBy?.name || '-'}</td>
                     <td className={`px-6 py-4 text-sm font-semibold whitespace-nowrap ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {tx.type === 'INCOME' ? '+' : '-'}{formatMoney(tx.amount, tx.currency)}
                     </td>
@@ -144,14 +150,18 @@ export default function StudentFinancePage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground max-w-[200px] truncate">{tx.description || '-'}</td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => { setEditing(tx); setShowModal(true) }} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => deleteTransaction(tx.id)} className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors inline-flex">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {(isAdmin || tx.createdById === session?.user?.id) ? (
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => { setEditing(tx); setShowModal(true) }} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => deleteTransaction(tx.id)} className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors inline-flex">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -15,7 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const existing = await prisma.transaction.findUnique({ where: { id } })
     if (!existing) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
 
-    if (!isAdminRole(user.role) && existing.agentId !== user.id) {
+    if (!isAdminRole(user.role) && existing.createdById !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -87,7 +87,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     })
     if (!existing) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
 
-    if (!isAdminRole(user.role) && existing.agentId !== user.id) {
+    if (!isAdminRole(user.role) && existing.createdById !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

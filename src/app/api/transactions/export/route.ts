@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getSessionUser, isAdminRole } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 
@@ -11,21 +11,25 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
-    const agentIdParam = searchParams.get('agentId')
+    const view = searchParams.get('view')
+    const personId = searchParams.get('personId')
 
+    // Same personal-vs-org scoping as GET /api/transactions.
     const where: any = {}
-    if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
-      where.agentId = user.id
-    } else if (user.role === 'ADMIN') {
-      const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
-      const allowedIds = managed.length > 0 ? [...managed.map(m => m.id), user.id] : null
-      if (agentIdParam) {
-        where.agentId = allowedIds && !allowedIds.includes(agentIdParam) ? '__none__' : agentIdParam
-      } else if (allowedIds) {
-        where.agentId = { in: allowedIds }
+    if (view === 'org' && isAdminRole(user.role)) {
+      if (user.role === 'ADMIN') {
+        const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
+        const allowedIds = managed.length > 0 ? [...managed.map(m => m.id), user.id] : null
+        if (personId) {
+          where.createdById = allowedIds && !allowedIds.includes(personId) ? '__none__' : personId
+        } else if (allowedIds) {
+          where.createdById = { in: allowedIds }
+        }
+      } else if (personId) {
+        where.createdById = personId
       }
-    } else if (agentIdParam) {
-      where.agentId = agentIdParam
+    } else {
+      where.createdById = user.id
     }
 
     const dateFrom = searchParams.get('dateFrom')

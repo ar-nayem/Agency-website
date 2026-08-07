@@ -6,51 +6,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
 import { TRANSACTION_CATEGORIES, PAYMENT_METHODS, TRANSACTION_STATUSES } from '@/src/lib/money'
 
+// Each person's finance is their own — scoped by who actually logged the
+// transaction (createdById), not by which agent's student it happened to be
+// for. Otherwise an admin/owner logging a transaction would silently inflate
+// whichever agent owns that student instead of counting toward their own
+// numbers. Admin/Owner can opt into a combined "org" view via ?view=org.
 async function scopeWhere(user: { id: string; role: string }, searchParams: URLSearchParams) {
   const where: any = {}
-  const agentId = searchParams.get('agentId')
+  const view = searchParams.get('view')
+  const personId = searchParams.get('personId')
 
-  if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
-    where.agentId = user.id
-  } else if (user.role === 'ADMIN') {
-    const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
-    const allowedIds = managed.length > 0 ? [...managed.map(m => m.id), user.id] : null
-    if (agentId) {
-      where.agentId = allowedIds && !allowedIds.includes(agentId) ? '__none__' : agentId
-    } else if (allowedIds) {
-      where.agentId = { in: allowedIds }
+  if (view === 'org' && isAdminRole(user.role)) {
+    if (user.role === 'ADMIN') {
+      const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
+      const allowedIds = managed.length > 0 ? [...managed.map(m => m.id), user.id] : null
+      if (personId) {
+        where.createdById = allowedIds && !allowedIds.includes(personId) ? '__none__' : personId
+      } else if (allowedIds) {
+        where.createdById = { in: allowedIds }
+      }
+    } else if (personId) {
+      where.createdById = personId
     }
-  } else if (agentId) {
-    where.agentId = agentId
-  }
-
-  const studentId = searchParams.get('studentId')
-  if (studentId) where.studentId = studentId
-
-  const type = searchParams.get('type')
-  if (type) where.type = type
-
-  const category = searchParams.get('category')
-  if (category) where.category = category
-
-  const status = searchParams.get('status')
-  if (status) where.status = status
-
-  const dateFrom = searchParams.get('dateFrom')
-  const dateTo = searchParams.get('dateTo')
-  if (dateFrom || dateTo) {
-    where.transactionDate = {}
-    if (dateFrom) where.transactionDate.gte = new Date(dateFrom)
-    if (dateTo) where.transactionDate.lte = new Date(dateTo + 'T23:59:59.999Z')
-  }
-
-  const search = searchParams.get('search')
-  if (search) {
-    where.OR = [
-      { description: { contains: search } },
-      { category: { contains: search } },
-      { student: { fullName: { contains: search } } },
-    ]
+  } else {
+    where.createdById = user.id
   }
 
   return where
@@ -62,7 +41,43 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
-    const where = await scopeWhere(user, searchParams)
+    const studentId = searchParams.get('studentId')
+
+    let where: any
+    if (studentId) {
+      // Entity view: a single student's full money picture, regardless of
+      // who logged each entry — same access rule as the student record itself.
+      const student = await prisma.student.findUnique({ where: { id: studentId }, select: { agentId: true } })
+      if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      if (!isAdminRole(user.role) && student.agentId !== user.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      where = { studentId }
+    } else {
+      where = await scopeWhere(user, searchParams)
+    }
+
+    const type = searchParams.get('type')
+    if (type) where.type = type
+    const category = searchParams.get('category')
+    if (category) where.category = category
+    const status = searchParams.get('status')
+    if (status) where.status = status
+    const dateFrom = searchParams.get('dateFrom')
+    const dateTo = searchParams.get('dateTo')
+    if (dateFrom || dateTo) {
+      where.transactionDate = {}
+      if (dateFrom) where.transactionDate.gte = new Date(dateFrom)
+      if (dateTo) where.transactionDate.lte = new Date(dateTo + 'T23:59:59.999Z')
+    }
+    const search = searchParams.get('search')
+    if (search) {
+      where.OR = [
+        { description: { contains: search } },
+        { category: { contains: search } },
+        { student: { fullName: { contains: search } } },
+      ]
+    }
 
     const transactions = await prisma.transaction.findMany({
       where,
