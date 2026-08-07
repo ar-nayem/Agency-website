@@ -1,16 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Trash2, Pencil, Globe, RefreshCw, Search, X,
-  CheckCircle2, XCircle, Clock3, Users, History as HistoryIcon, Settings2
+  CheckCircle2, XCircle, Clock3, Users, History as HistoryIcon, Settings2, Info
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { categorizeAdmitStatus, STATUS_CATEGORIES, type StatusCategory } from '@/src/lib/portalStatus'
 
 type Tab = 'portals' | 'students' | 'history'
+
+const CATEGORY_STYLES: Record<StatusCategory, string> = {
+  PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
+  PROCESSING: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400 border-blue-200',
+  ACCEPTED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
+  REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200',
+  REVOKED: 'bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300 border-slate-300',
+  UNKNOWN: 'bg-muted text-muted-foreground border-border',
+}
 
 export default function PortalsPage() {
   const { data: session } = useSession()
@@ -32,6 +42,7 @@ export default function PortalsPage() {
   const [students, setStudents] = useState<any[]>([])
   const [studentsLoading, setStudentsLoading] = useState(false)
   const [studentSearch, setStudentSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<StatusCategory | 'ALL'>('ALL')
 
   const [history, setHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -109,6 +120,23 @@ export default function PortalsPage() {
       setStudentsLoading(false)
     }
   }
+
+  const categorizedStudents = useMemo(
+    () => students.map((s) => ({ ...s, category: categorizeAdmitStatus(s.admitStatus) })),
+    [students]
+  )
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: categorizedStudents.length }
+    for (const cat of STATUS_CATEGORIES) counts[cat] = 0
+    for (const s of categorizedStudents) counts[s.category] = (counts[s.category] || 0) + 1
+    return counts
+  }, [categorizedStudents])
+
+  const filteredStudents = useMemo(
+    () => (categoryFilter === 'ALL' ? categorizedStudents : categorizedStudents.filter((s) => s.category === categoryFilter)),
+    [categorizedStudents, categoryFilter]
+  )
 
   async function fetchHistory() {
     setHistoryLoading(true)
@@ -325,6 +353,32 @@ export default function PortalsPage() {
 
       {tab === 'students' && (
         <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {(['ALL', ...STATUS_CATEGORIES] as const).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-2 ${
+                  categoryFilter === cat
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-card text-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {t(`portals.cat${cat.charAt(0)}${cat.slice(1).toLowerCase()}`)}
+                <span className={`text-xs px-1.5 py-0.5 rounded-md ${categoryFilter === cat ? 'bg-white/20' : 'bg-muted'}`}>
+                  {categoryCounts[cat] ?? 0}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {categoryFilter === 'REVOKED' && (
+            <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl p-3.5 text-sm text-amber-800 dark:text-amber-300">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{t('portals.revokedNoReasonNote')}</span>
+            </div>
+          )}
+
           <div className="relative max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -342,25 +396,27 @@ export default function PortalsPage() {
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.passportName')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.passportNo')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.program')}</th>
-                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.applyStatus')}</th>
-                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.admitStatus')}</th>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.status')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.lastSeen')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.matchedStudent')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {studentsLoading ? (
-                    <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
-                  ) : students.length === 0 ? (
-                    <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
+                    <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
+                  ) : filteredStudents.length === 0 ? (
+                    <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
                   ) : (
-                    students.map((s) => (
+                    filteredStudents.map((s) => (
                       <tr key={s.id} className="hover:bg-muted/60 transition-colors">
                         <td className="px-6 py-4 text-sm font-medium text-foreground">{s.passportName || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{s.passportNo || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{s.program || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">{s.applyStatus ?? '-'}</td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">{s.admitStatus ?? '-'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${CATEGORY_STYLES[s.category as StatusCategory]}`}>
+                            {t(`portals.cat${s.category.charAt(0)}${s.category.slice(1).toLowerCase()}`)}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{new Date(s.lastSeenAt).toLocaleString()}</td>
                         <td className="px-6 py-4 text-sm">
                           {s.matchedStudent ? (

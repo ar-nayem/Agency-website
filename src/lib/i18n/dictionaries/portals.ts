@@ -61,6 +61,13 @@ export const en = {
   search: 'Search name or passport number...',
   loadFailed: 'Failed to load data',
   lastScanError: 'Last Error',
+  catAll: 'All',
+  catPending: 'Pending',
+  catProcessing: 'Processing',
+  catAccepted: 'Accepted',
+  catRejected: 'Rejected',
+  catRevoked: 'Revoked',
+  revokedNoReasonNote: 'This portal only reports that a student cancelled/withdrew after admission — it does not provide a text reason. That\'s everything the university\'s system exposes to agencies.',
 }
 
 export const zh = {
@@ -126,4 +133,11 @@ export const zh = {
   search: '搜索姓名或护照号...',
   loadFailed: '加载数据失败',
   lastScanError: '最近错误',
+  catAll: '全部',
+  catPending: '待处理',
+  catProcessing: '处理中',
+  catAccepted: '已录取',
+  catRejected: '已拒绝',
+  catRevoked: '已放弃',
+  revokedNoReasonNote: '该门户仅提供"学生录取后放弃/取消"这一状态，不提供具体文字原因 —— 这是大学系统向代理开放的全部信息。',
 }
