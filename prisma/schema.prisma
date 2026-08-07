@@ -33,6 +33,7 @@ model User {
   organization    OrganizationProfile?
   transactions      Transaction[] @relation("AgentTransactions")
   createdTransactions Transaction[] @relation("TransactionCreatedBy")
+  universityPortals UniversityPortal[]
 }
 
 model Student {
@@ -99,6 +100,7 @@ model Student {
   financialSponsors FinancialSponsor[]
   messages         Message[]
   transactions     Transaction[]
+  portalSnapshots  PortalStudentSnapshot[]
 }
 
 model EducationHistory {
@@ -249,6 +251,72 @@ model Transaction {
 
   @@index([agentId])
   @@index([studentId])
+}
+
+model UniversityPortal {
+  id             String    @id @default(uuid())
+  name           String
+  loginUrl       String
+  username       String
+  passwordEnc    String
+  platform       String    @default("AT0086")
+  isActive       Boolean   @default(true)
+  lastScanAt     DateTime?
+  lastScanStatus String?
+  lastScanError  String?
+  lastScanCount  Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  students PortalStudentSnapshot[]
+  changes  PortalStatusChangeLog[]
+}
+
+model PortalStudentSnapshot {
+  id           String   @id @default(uuid())
+  externalId   String
+  passportNo   String?
+  passportName String?
+  program      String?
+  applyStatus  String?
+  admitStatus  String?
+  raw          String?
+  lastSeenAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  portalId String
+  portal   UniversityPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
+
+  matchedStudentId String?
+  matchedStudent   Student? @relation(fields: [matchedStudentId], references: [id])
+
+  @@unique([portalId, externalId])
+  @@index([passportNo])
+}
+
+model PortalStatusChangeLog {
+  id           String   @id @default(uuid())
+  externalId   String
+  passportName String?
+  passportNo   String?
+  field        String
+  oldValue     String?
+  newValue     String?
+  detectedAt   DateTime @default(now())
+
+  portalId String
+  portal   UniversityPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
+}
+
+model ScanSettings {
+  id            String    @id @default("global")
+  intervalHours Int       @default(5)
+  enabled       Boolean   @default(true)
+  lastRunAt     DateTime?
 }
 
 model ActivityLog {

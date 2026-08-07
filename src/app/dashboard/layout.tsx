@@ -7,7 +7,7 @@ import { signOut, useSession } from 'next-auth/react'
 import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
-  ListChecks, Menu, X, Wallet
+  ListChecks, Menu, X, Wallet, Globe
 } from 'lucide-react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { LanguageToggle } from '@/src/components/LanguageToggle'
@@ -92,6 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: t('nav.manageAccounts'), href: '/dashboard/agents', icon: Shield },
     { label: t('nav.docRequirements'), href: '/dashboard/document-requirements', icon: FileText },
     { label: t('nav.fieldRequirements'), href: '/dashboard/field-requirements', icon: ListChecks },
+    { label: t('nav.portals'), href: '/dashboard/portals', icon: Globe },
   ] : []
 
   const navItems = [...adminNav, ...ownerNav, ...baseNav]

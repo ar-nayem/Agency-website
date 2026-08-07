@@ -4,5 +4,7 @@ node_modules/
 !.env.example
 public/uploads/
 prisma/dev.db
+/dev.db
 *.tsbuildinfo
 .DS_Store
+*.traineddata
