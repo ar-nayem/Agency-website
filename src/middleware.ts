@@ -30,8 +30,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
-    // OWNER-only routes: agents management, document requirements, field requirements
-    const ownerOnlyPaths = ['/dashboard/agents', '/dashboard/document-requirements', '/dashboard/field-requirements', '/dashboard/portals', '/dashboard/analytics']
+    // OWNER-only routes: agents management, document requirements, field requirements.
+    // /dashboard/portals is deliberately NOT here — an admin can be granted access to
+    // it per-account (User.canViewPortals), so the page and its APIs do that finer
+    // check themselves instead of middleware's blanket owner-only redirect.
+    const ownerOnlyPaths = ['/dashboard/agents', '/dashboard/document-requirements', '/dashboard/field-requirements', '/dashboard/analytics']
     // Only mutating this data is OWNER-only — every agent needs to read requirement
     // lists and the user directory (e.g. to know what to upload, or filter by agent).
     // The routes themselves enforce the correct read permissions per role.

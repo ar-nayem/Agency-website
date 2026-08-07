@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getSessionUser, canAccessPortals } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import { encryptCredential } from '@/src/lib/credentialCrypto'
 import { logActivity } from '@/src/lib/activity'
@@ -13,11 +13,15 @@ function isOwner(role: string | undefined) {
 export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser(req)
-    if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!user || !(await canAccessPortals(user))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+    // A granted admin can see student status changes, but the actual portal
+    // login URL/username stay an owner-only operational detail.
+    const owner = isOwner(user.role)
     const portals = await prisma.universityPortal.findMany({
       select: {
-        id: true, name: true, loginUrl: true, username: true, platform: true, isActive: true,
+        id: true, name: true, isActive: true,
+        loginUrl: owner, username: owner, platform: owner,
         lastScanAt: true, lastScanStatus: true, lastScanError: true, lastScanCount: true,
         createdAt: true, createdBy: { select: { name: true } },
       },

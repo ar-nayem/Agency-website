@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getSessionUser, canAccessPortals } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { categorizeAdmitStatus } from '@/src/lib/portalStatus'
@@ -18,7 +18,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser(req)
-    if (!user || !isAdminRole(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!user || !(await canAccessPortals(user))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { searchParams } = new URL(req.url)
     const portalId = searchParams.get('portalId')

@@ -29,6 +29,7 @@ export default function AgentsPage() {
   const [resetSubmitting, setResetSubmitting] = useState(false)
   const [copied, setCopied] = useState(false)
   const [assigningId, setAssigningId] = useState<string | null>(null)
+  const [portalAccessId, setPortalAccessId] = useState<string | null>(null)
 
   useEffect(() => {
     if (session?.user?.role !== 'OWNER') {
@@ -133,6 +134,29 @@ export default function AgentsPage() {
       toast.error(t('agentsPage.updateFailed'))
     } finally {
       setAssigningId(null)
+    }
+  }
+
+  async function togglePortalAccess(userId: string, next: boolean) {
+    setPortalAccessId(userId)
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ canViewPortals: next })
+      })
+      if (res.ok) {
+        toast.success(t('agentsPage.portalAccessUpdated'))
+        fetchAgents()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || t('agentsPage.updateFailed'))
+      }
+    } catch {
+      toast.error(t('agentsPage.updateFailed'))
+    } finally {
+      setPortalAccessId(null)
     }
   }
 
@@ -340,6 +364,7 @@ export default function AgentsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.email')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.role')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.managedBy')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.portalAccess')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('common.status')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.students')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.created')}</th>
@@ -376,6 +401,24 @@ export default function AgentsPage() {
                           <option key={a.id} value={a.id}>{a.name}</option>
                         ))}
                       </select>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {user.role === 'ADMIN' ? (
+                      <button
+                        onClick={() => togglePortalAccess(user.id, !user.canViewPortals)}
+                        disabled={portalAccessId === user.id}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 ${
+                          user.canViewPortals
+                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 hover:bg-indigo-200'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                        }`}
+                        title={t('agentsPage.togglePortalAccessHint')}
+                      >
+                        {user.canViewPortals ? t('agentsPage.allowed') : t('agentsPage.blocked')}
+                      </button>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}

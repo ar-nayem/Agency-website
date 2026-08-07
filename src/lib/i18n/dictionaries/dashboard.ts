@@ -22,6 +22,8 @@ export const en = {
   documents: 'Documents',
   date: 'Date',
   noRecentSubmissions: 'No recent submissions',
+  portalStatusChanges: 'University Portal Status Changes',
+  portalStatusChangesHint: 'Recent admission status changes detected on connected university portals',
   noStudentsGetStarted: 'No students yet. Click "Add Student" to get started.',
 }
 
@@ -49,5 +51,7 @@ export const zh = {
   documents: '文件',
   date: '日期',
   noRecentSubmissions: '暂无最近提交',
+  portalStatusChanges: '大学门户状态变化',
+  portalStatusChangesHint: '已连接大学门户中检测到的最近录取状态变化',
   noStudentsGetStarted: '暂无学生，点击"添加学生"开始。',
 }

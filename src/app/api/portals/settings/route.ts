@@ -40,6 +40,13 @@ export async function PUT(req: NextRequest) {
       data.intervalHours = hours
     }
     if (body.enabled !== undefined) data.enabled = !!body.enabled
+    if (body.staggerMinutes !== undefined) {
+      const mins = Number(body.staggerMinutes)
+      if (!Number.isFinite(mins) || mins < 1 || mins > 120) {
+        return NextResponse.json({ error: 'staggerMinutes must be between 1 and 120' }, { status: 400 })
+      }
+      data.staggerMinutes = mins
+    }
 
     const settings = await prisma.scanSettings.upsert({
       where: { id: 'global' },

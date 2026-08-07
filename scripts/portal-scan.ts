@@ -150,15 +150,64 @@ export async function runScan(onlyPortalId?: string) {
   return { portalsScanned: portals.length, errors }
 }
 
+// The cron entry point. Portals are never scanned as one batch — each tick
+// scans at most ONE portal (the one that's been waiting longest), and won't
+// even do that unless the configured stagger gap has passed since the last
+// individual portal scan. Intended to be invoked frequently (every minute or
+// few) so it can act as soon as both the per-portal interval and the stagger
+// gap allow, without needing its own precise internal timer.
+export async function runScheduledTick() {
+  const settings = await prisma.scanSettings.upsert({
+    where: { id: 'global' },
+    create: { id: 'global' },
+    update: {},
+  })
+  if (!settings.enabled) return { skipped: 'disabled' as const }
+
+  const now = Date.now()
+  const staggerMs = (settings.staggerMinutes || 5) * 60 * 1000
+  if (settings.lastPortalScanAt && now - settings.lastPortalScanAt.getTime() < staggerMs) {
+    return { skipped: 'stagger-wait' as const }
+  }
+
+  const portals = await prisma.universityPortal.findMany({ where: { isActive: true } })
+  const intervalMs = settings.intervalHours * 3600 * 1000
+  const due = portals.filter((p) => !p.lastScanAt || now - p.lastScanAt.getTime() >= intervalMs)
+  if (due.length === 0) return { skipped: 'none-due' as const }
+
+  // Oldest-scanned (or never-scanned) portal goes first, so the rotation is fair.
+  due.sort((a, b) => (a.lastScanAt?.getTime() || 0) - (b.lastScanAt?.getTime() || 0))
+  const portal = due[0]
+
+  const roster = await buildLocalRoster()
+  const { changes, error } = await scanOnePortal(portal, roster)
+
+  await prisma.scanSettings.update({
+    where: { id: 'global' },
+    data: { lastPortalScanAt: new Date(), lastRunAt: new Date() },
+  })
+
+  if (error) {
+    await sendNotification('University Portal Scan Error', `<h2>${portal.name}</h2><p>${error}</p>`)
+  } else if (changes.length) {
+    await sendNotification('University Portal Status Update', `<h2>Portal Scan Results</h2>${statusChangeHtml(portal.name, changes)}`)
+  }
+
+  return { scanned: portal.name, changesCount: changes.length, error }
+}
+
 if (require.main === module) {
   const portalIdArg = process.argv.find((a) => a.startsWith('--portalId='))
   const onlyPortalId = portalIdArg ? portalIdArg.split('=')[1] : undefined
 
-  runScan(onlyPortalId)
-    .then((r) => {
-      console.log(`Scanned ${r.portalsScanned} portal(s).`)
-      if (r.errors.length) console.error('Errors:', r.errors)
-    })
-    .catch(console.error)
-    .finally(() => prisma.$disconnect())
+  const task = onlyPortalId
+    ? runScan(onlyPortalId).then((r) => {
+        console.log(`Scanned ${r.portalsScanned} portal(s).`)
+        if (r.errors.length) console.error('Errors:', r.errors)
+      })
+    : runScheduledTick().then((r) => {
+        console.log(JSON.stringify(r))
+      })
+
+  task.catch(console.error).finally(() => prisma.$disconnect())
 }

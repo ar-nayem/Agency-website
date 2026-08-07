@@ -18,6 +18,7 @@ model User {
   wechat      String?
   avatar      String?
   bio         String?
+  canViewPortals Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -313,10 +314,15 @@ model PortalStatusChangeLog {
 }
 
 model ScanSettings {
-  id            String    @id @default("global")
-  intervalHours Int       @default(5)
-  enabled       Boolean   @default(true)
-  lastRunAt     DateTime?
+  id                String    @id @default("global")
+  intervalHours     Int       @default(5)
+  enabled           Boolean   @default(true)
+  lastRunAt         DateTime?
+  // Portals are scanned one at a time, never in one batch — this marks when
+  // the last individual portal scan kicked off, so the next one waits out
+  // the stagger gap instead of firing immediately alongside it.
+  lastPortalScanAt  DateTime?
+  staggerMinutes    Int       @default(5)
 }
 
 model VisitorLog {

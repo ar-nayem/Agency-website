@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import {
   Users, UserCheck,
-  TrendingUp, FileText, Eye
+  TrendingUp, FileText, Eye, Globe
 } from 'lucide-react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
@@ -94,6 +95,18 @@ function StatusDonut({ slices, total }: { slices: DonutSlice[]; total: number })
 
 export default function AdminDashboard({ stats, recentStudents }: AdminDashboardProps) {
   const { t } = useLanguage()
+  const { data: session } = useSession()
+  const isOwner = session?.user?.role === 'OWNER'
+  const [portalChanges, setPortalChanges] = useState<any[]>([])
+  const [portalChangesLoading, setPortalChangesLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/portals/changes', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setPortalChanges(Array.isArray(data) ? data.slice(0, 8) : []))
+      .catch(() => {})
+      .finally(() => setPortalChangesLoading(false))
+  }, [])
 
   const topCards = [
     { label: t('dashboard.totalAgents'), value: stats.agents, icon: Users, color: 'from-indigo-500 to-indigo-600', href: '/dashboard/agents' },
@@ -238,6 +251,50 @@ export default function AdminDashboard({ stats, recentStudents }: AdminDashboard
           </table>
         </div>
       </div>
+
+      {!portalChangesLoading && portalChanges.length > 0 && (
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
+          <div className="px-6 py-5 border-b border-border flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Globe className="w-4 h-4 text-indigo-600" /> {t('dashboard.portalStatusChanges')}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('dashboard.portalStatusChangesHint')}</p>
+            </div>
+            {isOwner && (
+              <Link href="/dashboard/portals" className="text-indigo-600 hover:text-indigo-700 text-sm font-medium flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
+                {t('dashboard.viewAll')} <TrendingUp className="w-4 h-4" />
+              </Link>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.date')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.student')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.allPortals')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.changeField')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.oldValue')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.newValue')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {portalChanges.map((c) => (
+                  <tr key={c.id} className="hover:bg-muted/60 transition-colors">
+                    <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(c.detectedAt).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-foreground">{c.passportName || c.passportNo || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{c.portal?.name}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{c.field}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{c.oldValue ?? '-'}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-emerald-600">{c.newValue ?? '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

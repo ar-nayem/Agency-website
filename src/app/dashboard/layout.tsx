@@ -29,7 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
   const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
-  const [myProfile, setMyProfile] = useState<{ name: string; email: string } | null>(null)
+  const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .then(data => {
           setMyAvatar(data?.profile?.avatar || null)
           if (data?.profile) {
-            setMyProfile({ name: data.profile.name, email: data.profile.email })
+            setMyProfile({ name: data.profile.name, email: data.profile.email, canViewPortals: !!data.profile.canViewPortals })
           }
         })
         .catch(() => {})
@@ -92,11 +92,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: t('nav.manageAccounts'), href: '/dashboard/agents', icon: Shield },
     { label: t('nav.docRequirements'), href: '/dashboard/document-requirements', icon: FileText },
     { label: t('nav.fieldRequirements'), href: '/dashboard/field-requirements', icon: ListChecks },
-    { label: t('nav.portals'), href: '/dashboard/portals', icon: Globe },
     { label: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
   ] : []
 
-  const navItems = [...adminNav, ...ownerNav, ...baseNav]
+  // Owner always has access; an admin needs the per-account grant the owner
+  // toggles from Manage Accounts (session role alone doesn't carry that flag).
+  const canViewPortals = isOwner || (role === 'ADMIN' && !!myProfile?.canViewPortals)
+  const portalsNav = canViewPortals ? [
+    { label: t('nav.portals'), href: '/dashboard/portals', icon: Globe },
+  ] : []
+
+  const navItems = [...adminNav, ...portalsNav, ...ownerNav, ...baseNav]
 
   return (
     <div className="min-h-screen bg-background">

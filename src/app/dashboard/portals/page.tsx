@@ -36,7 +36,7 @@ export default function PortalsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [scanningId, setScanningId] = useState<string | null>(null)
 
-  const [settings, setSettings] = useState<{ intervalHours: number; enabled: boolean } | null>(null)
+  const [settings, setSettings] = useState<{ intervalHours: number; enabled: boolean; staggerMinutes: number } | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
 
   const [students, setStudents] = useState<any[]>([])
@@ -49,15 +49,40 @@ export default function PortalsPage() {
   const [history, setHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
+  const [accessChecked, setAccessChecked] = useState(false)
+  const [hasAccess, setHasAccess] = useState(false)
+  const role = session?.user?.role
+  const isOwner = role === 'OWNER'
+
   useEffect(() => {
-    if (session && session.user?.role !== 'OWNER') {
+    if (!session) return
+    if (role !== 'OWNER' && role !== 'ADMIN') {
       router.push('/dashboard')
       return
     }
-    if (session?.user?.role === 'OWNER') {
+    if (role === 'OWNER') {
+      setHasAccess(true)
+      setAccessChecked(true)
+      setTab('portals')
       fetchPortals()
       fetchSettings()
+      return
     }
+    // Admin: the JWT role alone doesn't carry the per-account grant — check live.
+    fetch('/api/profile', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        const granted = !!data?.profile?.canViewPortals
+        if (!granted) {
+          router.push('/dashboard')
+          return
+        }
+        setHasAccess(true)
+        setTab('students')
+        fetchPortals()
+      })
+      .catch(() => router.push('/dashboard'))
+      .finally(() => setAccessChecked(true))
   }, [session])
 
   useEffect(() => {
@@ -82,13 +107,13 @@ export default function PortalsPage() {
     try {
       const res = await fetch('/api/portals/settings', { credentials: 'include' })
       const data = await res.json()
-      setSettings({ intervalHours: data.intervalHours, enabled: data.enabled })
+      setSettings({ intervalHours: data.intervalHours, enabled: data.enabled, staggerMinutes: data.staggerMinutes ?? 5 })
     } catch {
       toast.error(t('portals.loadFailed'))
     }
   }
 
-  async function saveSettings(next: { intervalHours: number; enabled: boolean }) {
+  async function saveSettings(next: { intervalHours: number; enabled: boolean; staggerMinutes: number }) {
     setSavingSettings(true)
     try {
       const res = await fetch('/api/portals/settings', {
@@ -99,7 +124,7 @@ export default function PortalsPage() {
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      setSettings({ intervalHours: data.intervalHours, enabled: data.enabled })
+      setSettings({ intervalHours: data.intervalHours, enabled: data.enabled, staggerMinutes: data.staggerMinutes ?? 5 })
       toast.success(t('portals.settingsSaved'))
     } catch {
       toast.error(t('portals.settingsSaveFailed'))
@@ -279,7 +304,7 @@ export default function PortalsPage() {
     }
   }
 
-  if (session && session.user?.role !== 'OWNER') return null
+  if (!accessChecked || !hasAccess) return null
 
   return (
     <div className="space-y-6">
@@ -291,9 +316,11 @@ export default function PortalsPage() {
       </div>
 
       <div className="inline-flex items-center gap-1 bg-muted rounded-xl p-1">
-        <button onClick={() => setTab('portals')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'portals' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <Settings2 className="w-4 h-4" /> {t('portals.portalsTab')}
-        </button>
+        {isOwner && (
+          <button onClick={() => setTab('portals')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'portals' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            <Settings2 className="w-4 h-4" /> {t('portals.portalsTab')}
+          </button>
+        )}
         <button onClick={() => setTab('students')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'students' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <Users className="w-4 h-4" /> {t('portals.studentsTab')}
         </button>
@@ -302,7 +329,7 @@ export default function PortalsPage() {
         </button>
       </div>
 
-      {tab === 'portals' && (
+      {tab === 'portals' && isOwner && (
         <>
           {settings && (
             <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5">
@@ -331,7 +358,21 @@ export default function PortalsPage() {
                     ))}
                   </select>
                 </div>
+                <div className="flex items-center gap-2 text-sm text-foreground">
+                  <span>{t('portals.staggerGap')}</span>
+                  <select
+                    value={settings.staggerMinutes}
+                    onChange={(e) => saveSettings({ ...settings, staggerMinutes: Number(e.target.value) })}
+                    disabled={savingSettings}
+                    className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm"
+                  >
+                    {[2, 5, 10, 15, 30, 60].map((m) => (
+                      <option key={m} value={m}>{m} {t('portals.minutes')}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground mt-3">{t('portals.staggerHint')}</p>
             </div>
           )}
 

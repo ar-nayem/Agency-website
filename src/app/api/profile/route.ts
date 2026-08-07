@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true, name: true, email: true, role: true,
         phone: true, wechat: true, avatar: true, bio: true,
+        canViewPortals: true,
         createdAt: true,
       },
     })

@@ -22,6 +22,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (typeof body.isActive === 'boolean') data.isActive = body.isActive
     if (typeof body.role === 'string') data.role = body.role
 
+    if (typeof body.canViewPortals === 'boolean') {
+      if (user.role !== 'OWNER') {
+        return NextResponse.json({ error: 'Only the owner can grant University Portals access' }, { status: 403 })
+      }
+      data.canViewPortals = body.canViewPortals
+    }
+
     if ('managedByAdminId' in body) {
       if (user.role !== 'OWNER') {
         return NextResponse.json({ error: 'Only the owner can assign agents to admins' }, { status: 403 })
@@ -55,6 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         isActive: true,
         createdAt: true,
         managedByAdminId: true,
+        canViewPortals: true,
       }
     })
     return NextResponse.json(updated)
