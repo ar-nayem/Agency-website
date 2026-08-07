@@ -12,7 +12,30 @@ interface StatusChange {
   newValue: string | null
 }
 
-async function scanOnePortal(portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string }) {
+function normalizeName(name: string | null | undefined): string {
+  return (name || '').toUpperCase().replace(/\s+/g, ' ').trim()
+}
+
+interface LocalRoster {
+  byPassport: Map<string, string>
+  byName: Map<string, string>
+}
+
+async function buildLocalRoster(): Promise<LocalRoster> {
+  const students = await prisma.student.findMany({ select: { id: true, passportNo: true, fullName: true } })
+  const byPassport = new Map<string, string>()
+  const byName = new Map<string, string>()
+  for (const s of students) {
+    if (s.passportNo) byPassport.set(s.passportNo.toUpperCase().trim(), s.id)
+    if (s.fullName) byName.set(normalizeName(s.fullName), s.id)
+  }
+  return { byPassport, byName }
+}
+
+async function scanOnePortal(
+  portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string },
+  roster: LocalRoster
+) {
   let students: PortalStudentRecord[]
   try {
     const baseUrl = new URL(portal.loginUrl).origin
@@ -50,8 +73,10 @@ async function scanOnePortal(portal: { id: string; loginUrl: string; username: s
 
     let matchedStudentId = existing?.matchedStudentId ?? null
     if (!matchedStudentId && s.passportNo) {
-      const match = await prisma.student.findFirst({ where: { passportNo: s.passportNo } })
-      if (match) matchedStudentId = match.id
+      matchedStudentId = roster.byPassport.get(s.passportNo.toUpperCase().trim()) || null
+    }
+    if (!matchedStudentId && s.passportName) {
+      matchedStudentId = roster.byName.get(normalizeName(s.passportName)) || null
     }
 
     await prisma.portalStudentSnapshot.upsert({
@@ -100,9 +125,10 @@ export async function runScan(onlyPortalId?: string) {
 
   let html = ''
   const errors: { portal: string; error: string }[] = []
+  const roster = await buildLocalRoster()
 
   for (const portal of portals) {
-    const { changes, error } = await scanOnePortal(portal)
+    const { changes, error } = await scanOnePortal(portal, roster)
     if (error) errors.push({ portal: portal.name, error })
     if (changes.length) html += statusChangeHtml(portal.name, changes)
   }

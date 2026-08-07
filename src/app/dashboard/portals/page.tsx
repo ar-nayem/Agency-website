@@ -43,6 +43,7 @@ export default function PortalsPage() {
   const [studentsLoading, setStudentsLoading] = useState(false)
   const [studentSearch, setStudentSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<StatusCategory | 'ALL'>('ALL')
+  const [universityFilter, setUniversityFilter] = useState<string>('ALL')
 
   const [history, setHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -126,6 +127,7 @@ export default function PortalsPage() {
       const params = new URLSearchParams()
       if (studentSearch) params.set('search', studentSearch)
       if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
+      if (universityFilter !== 'ALL') params.set('portalId', universityFilter)
       const res = await fetch(`/api/portals/students/export?${params}`, { credentials: 'include' })
       if (!res.ok) throw new Error()
       const blob = await res.blob()
@@ -145,16 +147,27 @@ export default function PortalsPage() {
     [students]
   )
 
+  const universityScopedStudents = useMemo(
+    () => (universityFilter === 'ALL' ? categorizedStudents : categorizedStudents.filter((s) => s.portalId === universityFilter)),
+    [categorizedStudents, universityFilter]
+  )
+
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: categorizedStudents.length }
+    const counts: Record<string, number> = { ALL: universityScopedStudents.length }
     for (const cat of STATUS_CATEGORIES) counts[cat] = 0
-    for (const s of categorizedStudents) counts[s.category] = (counts[s.category] || 0) + 1
+    for (const s of universityScopedStudents) counts[s.category] = (counts[s.category] || 0) + 1
+    return counts
+  }, [universityScopedStudents])
+
+  const universityCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: categorizedStudents.length }
+    for (const s of categorizedStudents) counts[s.portalId] = (counts[s.portalId] || 0) + 1
     return counts
   }, [categorizedStudents])
 
   const filteredStudents = useMemo(
-    () => (categoryFilter === 'ALL' ? categorizedStudents : categorizedStudents.filter((s) => s.category === categoryFilter)),
-    [categorizedStudents, categoryFilter]
+    () => (categoryFilter === 'ALL' ? universityScopedStudents : universityScopedStudents.filter((s) => s.category === categoryFilter)),
+    [universityScopedStudents, categoryFilter]
   )
 
   async function fetchHistory() {
@@ -372,6 +385,40 @@ export default function PortalsPage() {
 
       {tab === 'students' && (
         <div className="space-y-4">
+          {portals.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setUniversityFilter('ALL')}
+                className={`px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-2 ${
+                  universityFilter === 'ALL'
+                    ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
+                    : 'bg-card text-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {t('portals.allUniversities')}
+                <span className={`text-xs px-1.5 py-0.5 rounded-md ${universityFilter === 'ALL' ? 'bg-white/20 dark:bg-black/10' : 'bg-muted'}`}>
+                  {universityCounts.ALL ?? 0}
+                </span>
+              </button>
+              {portals.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setUniversityFilter(p.id)}
+                  className={`px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-2 ${
+                    universityFilter === p.id
+                      ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
+                      : 'bg-card text-foreground border-border hover:bg-muted'
+                  }`}
+                >
+                  {p.name}
+                  <span className={`text-xs px-1.5 py-0.5 rounded-md ${universityFilter === p.id ? 'bg-white/20 dark:bg-black/10' : 'bg-muted'}`}>
+                    {universityCounts[p.id] ?? 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             {(['ALL', ...STATUS_CATEGORIES] as const).map((cat) => (
               <button
