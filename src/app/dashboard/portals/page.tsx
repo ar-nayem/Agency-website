@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Trash2, Pencil, Globe, RefreshCw, Search, X,
-  CheckCircle2, XCircle, Clock3, Users, History as HistoryIcon, Settings2, Info
+  CheckCircle2, XCircle, Clock3, Users, History as HistoryIcon, Settings2, Info, Download
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -118,6 +118,25 @@ export default function PortalsPage() {
       toast.error(t('portals.loadFailed'))
     } finally {
       setStudentsLoading(false)
+    }
+  }
+
+  async function exportStudents() {
+    try {
+      const params = new URLSearchParams()
+      if (studentSearch) params.set('search', studentSearch)
+      if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
+      const res = await fetch(`/api/portals/students/export?${params}`, { credentials: 'include' })
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `university-students-${Date.now()}.xlsx`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      toast.error(t('portals.exportFailed'))
     }
   }
 
@@ -379,20 +398,29 @@ export default function PortalsPage() {
             </div>
           )}
 
-          <div className="relative max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={studentSearch}
-              onChange={(e) => setStudentSearch(e.target.value)}
-              placeholder={t('portals.search')}
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground"
-            />
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                placeholder={t('portals.search')}
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground"
+              />
+            </div>
+            <button
+              onClick={exportStudents}
+              className="px-4 py-2.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-xl hover:bg-emerald-100 transition flex items-center gap-2 text-sm font-medium shrink-0"
+            >
+              <Download className="w-4 h-4" /> {t('portals.exportExcel')}
+            </button>
           </div>
           <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted">
                   <tr>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.university')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.passportName')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.passportNo')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.program')}</th>
@@ -403,12 +431,13 @@ export default function PortalsPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {studentsLoading ? (
-                    <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
+                    <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
                   ) : filteredStudents.length === 0 ? (
-                    <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
+                    <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
                   ) : (
                     filteredStudents.map((s) => (
                       <tr key={s.id} className="hover:bg-muted/60 transition-colors">
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{s.portal?.name || '-'}</td>
                         <td className="px-6 py-4 text-sm font-medium text-foreground">{s.passportName || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{s.passportNo || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{s.program || '-'}</td>
