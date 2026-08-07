@@ -1,0 +1,81 @@
+export const dynamic = 'force-dynamic'
+
+import { prisma } from '@/src/lib/prisma'
+import { getSessionUser } from '@/src/lib/session'
+import { NextRequest, NextResponse } from 'next/server'
+import * as XLSX from 'xlsx'
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getSessionUser(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { searchParams } = new URL(req.url)
+    const agentIdParam = searchParams.get('agentId')
+
+    const where: any = {}
+    if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
+      where.agentId = user.id
+    } else if (user.role === 'ADMIN') {
+      const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
+      const allowedIds = managed.length > 0 ? [...managed.map(m => m.id), user.id] : null
+      if (agentIdParam) {
+        where.agentId = allowedIds && !allowedIds.includes(agentIdParam) ? '__none__' : agentIdParam
+      } else if (allowedIds) {
+        where.agentId = { in: allowedIds }
+      }
+    } else if (agentIdParam) {
+      where.agentId = agentIdParam
+    }
+
+    const dateFrom = searchParams.get('dateFrom')
+    const dateTo = searchParams.get('dateTo')
+    if (dateFrom || dateTo) {
+      where.transactionDate = {}
+      if (dateFrom) where.transactionDate.gte = new Date(dateFrom)
+      if (dateTo) where.transactionDate.lte = new Date(dateTo + 'T23:59:59.999Z')
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where,
+      include: {
+        student: { select: { fullName: true, serialNumber: true, status: true } },
+        agent: { select: { name: true, email: true } },
+        createdBy: { select: { name: true } },
+      },
+      orderBy: { transactionDate: 'desc' },
+    })
+
+    const data = transactions.map(tx => ({
+      'Date': tx.transactionDate.toISOString().slice(0, 10),
+      'Type': tx.type,
+      'Category': tx.category,
+      'Amount': tx.amount,
+      'Currency': tx.currency,
+      'Payment Method': tx.paymentMethod || '',
+      'Status': tx.status,
+      'Student': tx.student.fullName,
+      'Serial No.': tx.student.serialNumber || '',
+      'Student Status': tx.student.status,
+      'Agent': tx.agent.name,
+      'Logged By': tx.createdBy.name,
+      'Description': tx.description || '',
+      'Created At': tx.createdAt.toISOString(),
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Transactions')
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+
+    return new NextResponse(buf, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="finance-export-${Date.now()}.xlsx"`,
+      },
+    })
+  } catch (error) {
+    console.error('GET /api/transactions/export error:', error)
+    return NextResponse.json({ error: 'Failed to export' }, { status: 500 })
+  }
+}

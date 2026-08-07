@@ -31,6 +31,8 @@ model User {
   sentMessages    Message[]       @relation("SentBy")
   receivedMessages Message[]      @relation("ReceivedBy")
   organization    OrganizationProfile?
+  transactions      Transaction[] @relation("AgentTransactions")
+  createdTransactions Transaction[] @relation("TransactionCreatedBy")
 }
 
 model Student {
@@ -96,6 +98,7 @@ model Student {
   familyMembers    FamilyMember[]
   financialSponsors FinancialSponsor[]
   messages         Message[]
+  transactions     Transaction[]
 }
 
 model EducationHistory {
@@ -220,6 +223,32 @@ model OrganizationProfile {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model Transaction {
+  id              String   @id @default(uuid())
+  type            String   // INCOME | EXPENSE
+  category        String
+  amount          Float
+  currency        String   @default("CNY")
+  paymentMethod   String?
+  status          String   @default("COMPLETED") // COMPLETED | PENDING | REFUNDED
+  description     String?
+  transactionDate DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  agentId         String
+  agent           User     @relation("AgentTransactions", fields: [agentId], references: [id])
+
+  createdById     String
+  createdBy       User     @relation("TransactionCreatedBy", fields: [createdById], references: [id])
+
+  @@index([agentId])
+  @@index([studentId])
 }
 
 model ActivityLog {

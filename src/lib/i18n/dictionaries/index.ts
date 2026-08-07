@@ -8,6 +8,7 @@ import * as studentForm from './studentForm'
 import * as messages from './messages'
 import * as agentsPage from './agentsPage'
 import * as settings from './settings'
+import * as finance from './finance'
 
 export type Language = 'en' | 'zh'
 
@@ -23,6 +24,7 @@ export const dictionaries = {
     messages: messages.en,
     agentsPage: agentsPage.en,
     settings: settings.en,
+    finance: finance.en,
   },
   zh: {
     common: common.zh,
@@ -35,5 +37,6 @@ export const dictionaries = {
     messages: messages.zh,
     agentsPage: agentsPage.zh,
     settings: settings.zh,
+    finance: finance.zh,
   },
 }

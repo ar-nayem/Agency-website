@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle, XCircle, Trash2, MessageSquare, Pencil, Download } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle, XCircle, Trash2, MessageSquare, Pencil, Download, Wallet } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSession } from 'next-auth/react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { formatMoney } from '@/src/lib/money'
 
 export default function StudentDetailPage() {
   const { id } = useParams()
@@ -15,10 +16,24 @@ export default function StudentDetailPage() {
   const { t } = useLanguage()
   const [student, setStudent] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [financeSummary, setFinanceSummary] = useState<{ charged: number; spent: number } | null>(null)
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
 
   useEffect(() => {
     fetchStudent()
+    fetch(`/api/transactions?studentId=${id}`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((txs: any[]) => {
+        if (!Array.isArray(txs)) return
+        let charged = 0, spent = 0
+        for (const tx of txs) {
+          if (tx.status !== 'COMPLETED') continue
+          if (tx.type === 'INCOME') charged += tx.amount
+          else spent += tx.amount
+        }
+        setFinanceSummary({ charged, spent })
+      })
+      .catch(() => {})
   }, [id])
 
   async function fetchStudent() {
@@ -274,8 +289,31 @@ export default function StudentDetailPage() {
           )}
         </div>
 
-        {/* Right: Documents Summary */}
+        {/* Right: Finance + Documents Summary */}
         <div className="space-y-6">
+          <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-foreground">{t('finance.title')}</h3>
+              <Link href={`/dashboard/students/${id}/finance`} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-lg transition-colors">
+                {t('finance.manageFinance')}
+              </Link>
+            </div>
+            {financeSummary ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('finance.charged')}</p>
+                  <p className="text-lg font-bold text-emerald-600">{formatMoney(financeSummary.charged)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('finance.spent')}</p>
+                  <p className="text-lg font-bold text-rose-600">{formatMoney(financeSummary.spent)}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+            )}
+          </div>
+
           <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-foreground">{t('dashboard.documents')}</h3>

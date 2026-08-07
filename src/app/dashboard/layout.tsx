@@ -7,7 +7,7 @@ import { signOut, useSession } from 'next-auth/react'
 import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
-  ListChecks, Menu, X
+  ListChecks, Menu, X, Wallet
 } from 'lucide-react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { LanguageToggle } from '@/src/components/LanguageToggle'
@@ -80,10 +80,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: t('nav.dashboard'), href: '/dashboard/admin', icon: LayoutDashboard },
     { label: t('nav.allStudents'), href: '/dashboard/students', icon: Users },
     { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
+    { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
   ] : [
     { label: t('nav.dashboard'), href: '/dashboard/agent', icon: LayoutDashboard },
     { label: t('nav.myStudents'), href: '/dashboard/students', icon: Users },
     { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
+    { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
   ]
 
   const ownerNav = isOwner ? [
