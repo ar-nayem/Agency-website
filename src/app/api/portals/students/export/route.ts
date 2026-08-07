@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
     const portalId = searchParams.get('portalId')
     const search = searchParams.get('search')
     const category = searchParams.get('category')
+    const matched = searchParams.get('matched')
 
     const where: any = {}
     if (portalId) where.portalId = portalId
@@ -43,7 +44,9 @@ export async function GET(req: NextRequest) {
       orderBy: { lastSeenAt: 'desc' },
     })
 
-    const filtered = category ? students.filter((s) => categorizeAdmitStatus(s.admitStatus) === category) : students
+    let filtered = category ? students.filter((s) => categorizeAdmitStatus(s.admitStatus) === category) : students
+    if (matched === '1') filtered = filtered.filter((s) => !!s.matchedStudent)
+    if (matched === '0') filtered = filtered.filter((s) => !s.matchedStudent)
 
     const data = filtered.map((s) => ({
       'University': s.portal.name,

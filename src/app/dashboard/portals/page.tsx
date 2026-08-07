@@ -44,6 +44,7 @@ export default function PortalsPage() {
   const [studentSearch, setStudentSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<StatusCategory | 'ALL'>('ALL')
   const [universityFilter, setUniversityFilter] = useState<string>('ALL')
+  const [matchFilter, setMatchFilter] = useState<'ALL' | 'MATCHED' | 'UNMATCHED'>('ALL')
 
   const [history, setHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -128,6 +129,7 @@ export default function PortalsPage() {
       if (studentSearch) params.set('search', studentSearch)
       if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
       if (universityFilter !== 'ALL') params.set('portalId', universityFilter)
+      if (matchFilter !== 'ALL') params.set('matched', matchFilter === 'MATCHED' ? '1' : '0')
       const res = await fetch(`/api/portals/students/export?${params}`, { credentials: 'include' })
       if (!res.ok) throw new Error()
       const blob = await res.blob()
@@ -165,10 +167,25 @@ export default function PortalsPage() {
     return counts
   }, [categorizedStudents])
 
-  const filteredStudents = useMemo(
+  const categoryScopedStudents = useMemo(
     () => (categoryFilter === 'ALL' ? universityScopedStudents : universityScopedStudents.filter((s) => s.category === categoryFilter)),
     [universityScopedStudents, categoryFilter]
   )
+
+  const matchCounts = useMemo(() => {
+    const counts = { ALL: categoryScopedStudents.length, MATCHED: 0, UNMATCHED: 0 }
+    for (const s of categoryScopedStudents) {
+      if (s.matchedStudent) counts.MATCHED++
+      else counts.UNMATCHED++
+    }
+    return counts
+  }, [categoryScopedStudents])
+
+  const filteredStudents = useMemo(() => {
+    if (matchFilter === 'MATCHED') return categoryScopedStudents.filter((s) => !!s.matchedStudent)
+    if (matchFilter === 'UNMATCHED') return categoryScopedStudents.filter((s) => !s.matchedStudent)
+    return categoryScopedStudents
+  }, [categoryScopedStudents, matchFilter])
 
   async function fetchHistory() {
     setHistoryLoading(true)
@@ -433,6 +450,29 @@ export default function PortalsPage() {
                 {t(`portals.cat${cat.charAt(0)}${cat.slice(1).toLowerCase()}`)}
                 <span className={`text-xs px-1.5 py-0.5 rounded-md ${categoryFilter === cat ? 'bg-white/20' : 'bg-muted'}`}>
                   {categoryCounts[cat] ?? 0}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['ALL', 'portals.matchAll'],
+              ['MATCHED', 'portals.matchInMyStudents'],
+              ['UNMATCHED', 'portals.matchNotInMyStudents'],
+            ] as const).map(([val, key]) => (
+              <button
+                key={val}
+                onClick={() => setMatchFilter(val)}
+                className={`px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-2 ${
+                  matchFilter === val
+                    ? 'bg-emerald-600 text-white border-emerald-600'
+                    : 'bg-card text-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {t(key)}
+                <span className={`text-xs px-1.5 py-0.5 rounded-md ${matchFilter === val ? 'bg-white/20' : 'bg-muted'}`}>
+                  {matchCounts[val] ?? 0}
                 </span>
               </button>
             ))}
