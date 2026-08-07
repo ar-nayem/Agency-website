@@ -319,6 +319,23 @@ model ScanSettings {
   lastRunAt     DateTime?
 }
 
+model VisitorLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  userName  String?
+  userEmail String?
+  userRole  String?
+  path      String
+  referrer  String?
+  userAgent String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([path])
+}
+
 model ActivityLog {
   id        String   @id @default(uuid())
   action    String

@@ -9,7 +9,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow public routes
-  if (pathname === '/login' || pathname.startsWith('/api/auth')) {
+  if (pathname === '/login' || pathname.startsWith('/api/auth') || pathname === '/api/analytics/track') {
     if (token && pathname === '/login') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // OWNER-only routes: agents management, document requirements, field requirements
-    const ownerOnlyPaths = ['/dashboard/agents', '/dashboard/document-requirements', '/dashboard/field-requirements']
+    const ownerOnlyPaths = ['/dashboard/agents', '/dashboard/document-requirements', '/dashboard/field-requirements', '/dashboard/portals', '/dashboard/analytics']
     // Only mutating this data is OWNER-only — every agent needs to read requirement
     // lists and the user directory (e.g. to know what to upload, or filter by agent).
     // The routes themselves enforce the correct read permissions per role.
