@@ -1,0 +1,49 @@
+export const dynamic = 'force-dynamic'
+
+import { prisma } from '@/src/lib/prisma'
+import { hash } from 'bcryptjs'
+import { NextRequest, NextResponse } from 'next/server'
+import { sendNotification, agentSignupTemplate } from '@/src/lib/email'
+import { logActivity } from '@/src/lib/activity'
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { name, email, password, phone } = body
+
+    if (!name || !email || !password) {
+      return NextResponse.json({ error: 'Name, email, and password are required' }, { status: 400 })
+    }
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email: email.trim() } })
+    if (existing) {
+      return NextResponse.json({ error: 'An account with this email already exists' }, { status: 400 })
+    }
+
+    const hashed = await hash(password, 12)
+    const newUser = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: email.trim(),
+        password: hashed,
+        phone: phone || null,
+        role: 'AGENT',
+        // Self-registered agents get real access to student PII once active —
+        // start inactive so the owner reviews and approves via the Agents page.
+        isActive: false,
+      },
+      select: { id: true, name: true, email: true },
+    })
+
+    await logActivity(newUser.id, 'ACCOUNT_REGISTERED', `${newUser.name} self-registered as agent, pending approval`)
+    await sendNotification('New Agent Signup — Approval Needed', agentSignupTemplate(newUser.name, newUser.email))
+
+    return NextResponse.json({ message: 'Account created. An admin will review and activate it shortly.' }, { status: 201 })
+  } catch (error) {
+    console.error('POST /api/auth/register error:', error)
+    return NextResponse.json({ error: 'Failed to register' }, { status: 500 })
+  }
+}

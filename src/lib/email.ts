@@ -29,6 +29,41 @@ export async function sendNotification(subject: string, html: string) {
   }
 }
 
+// Unlike sendNotification (fixed owner inbox), this sends to an arbitrary
+// recipient — used for account-holder-facing mail like password resets.
+export async function sendMail(to: string, subject: string, html: string) {
+  if (!emailConfigured) return
+  try {
+    await transporter.sendMail({
+      from: `"Chengdu Dream Fly Edu" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
+      to,
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error('Email send failed:', error)
+  }
+}
+
+export function passwordResetTemplate(name: string, resetUrl: string) {
+  return `
+    <h2>Reset your password</h2>
+    <p>Hi ${name},</p>
+    <p>We received a request to reset your password. Click the link below to choose a new one — it expires in 1 hour.</p>
+    <p><a href="${resetUrl}">${resetUrl}</a></p>
+    <p>If you didn't request this, you can safely ignore this email.</p>
+  `
+}
+
+export function agentSignupTemplate(name: string, email: string) {
+  return `
+    <h2>New Agent Signup</h2>
+    <p><strong>Name:</strong> ${name}</p>
+    <p><strong>Email:</strong> ${email}</p>
+    <p>This account is inactive until approved. Log in to the Agents page to activate it.</p>
+  `
+}
+
 export function studentSubmissionTemplate(agentName: string, studentName: string) {
   return `
     <h2>New Student Submission</h2>

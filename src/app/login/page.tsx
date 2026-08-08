@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Phone, Mail, GraduationCap, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -81,7 +82,10 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">{t('login.password')}</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-slate-300">{t('login.password')}</label>
+                <Link href="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300">{t('login.forgotPassword')}</Link>
+              </div>
               <input
                 type="password"
                 required
@@ -100,6 +104,11 @@ export default function LoginPage() {
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? t('login.signingIn') : t('login.signIn')}
             </button>
+
+            <p className="text-center text-sm text-slate-400">
+              {t('login.noAccount')}{' '}
+              <Link href="/register" className="text-indigo-400 hover:text-indigo-300 font-medium">{t('login.registerAsAgent')}</Link>
+            </p>
           </form>
 
           <div className="mt-8 pt-6 border-t border-white/10 text-center">
