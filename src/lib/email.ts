@@ -20,7 +20,7 @@ export async function sendNotification(subject: string, html: string) {
   try {
     await transporter.sendMail({
       from: `"Student Portal" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
-      to: 'nobiun@163.com',
+      to: '15329802848@163.com',
       subject,
       html,
     })
