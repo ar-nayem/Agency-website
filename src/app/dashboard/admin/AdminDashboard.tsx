@@ -99,10 +99,14 @@ export default function AdminDashboard({ stats, recentStudents }: AdminDashboard
   const isOwner = session?.user?.role === 'OWNER'
   const [portalChanges, setPortalChanges] = useState<any[]>([])
   const [portalChangesLoading, setPortalChangesLoading] = useState(true)
+  const [hasPortalAccess, setHasPortalAccess] = useState(false)
 
   useEffect(() => {
     fetch('/api/portals/changes', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        setHasPortalAccess(r.ok)
+        return r.ok ? r.json() : []
+      })
       .then((data) => setPortalChanges(Array.isArray(data) ? data.slice(0, 8) : []))
       .catch(() => {})
       .finally(() => setPortalChangesLoading(false))
@@ -143,6 +147,56 @@ export default function AdminDashboard({ stats, recentStudents }: AdminDashboard
         <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('dashboard.adminTitle')}</h1>
         <p className="text-muted-foreground mt-1 text-sm">{t('dashboard.overview')}</p>
       </div>
+
+      {hasPortalAccess && (
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
+          <div className="px-6 py-5 border-b border-border flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Globe className="w-4 h-4 text-indigo-600" /> {t('dashboard.portalStatusChanges')}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('dashboard.portalStatusChangesHint')}</p>
+            </div>
+            {isOwner && (
+              <Link href="/dashboard/portals" className="text-indigo-600 hover:text-indigo-700 text-sm font-medium flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
+                {t('dashboard.viewAll')} <TrendingUp className="w-4 h-4" />
+              </Link>
+            )}
+          </div>
+          {portalChangesLoading ? (
+            <div className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</div>
+          ) : portalChanges.length === 0 ? (
+            <div className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noChangesYet')}</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.date')}</th>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.student')}</th>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.allPortals')}</th>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.changeField')}</th>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.oldValue')}</th>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.newValue')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {portalChanges.map((c) => (
+                    <tr key={c.id} className="hover:bg-muted/60 transition-colors">
+                      <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(c.detectedAt).toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-foreground">{c.passportName || c.passportNo || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{c.portal?.name}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{c.field}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{c.oldValue ?? '-'}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-emerald-600">{c.newValue ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="flex flex-col gap-5">
@@ -252,49 +306,6 @@ export default function AdminDashboard({ stats, recentStudents }: AdminDashboard
         </div>
       </div>
 
-      {!portalChangesLoading && portalChanges.length > 0 && (
-        <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
-          <div className="px-6 py-5 border-b border-border flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-                <Globe className="w-4 h-4 text-indigo-600" /> {t('dashboard.portalStatusChanges')}
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{t('dashboard.portalStatusChangesHint')}</p>
-            </div>
-            {isOwner && (
-              <Link href="/dashboard/portals" className="text-indigo-600 hover:text-indigo-700 text-sm font-medium flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
-                {t('dashboard.viewAll')} <TrendingUp className="w-4 h-4" />
-              </Link>
-            )}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.date')}</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.student')}</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.allPortals')}</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.changeField')}</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.oldValue')}</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.newValue')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {portalChanges.map((c) => (
-                  <tr key={c.id} className="hover:bg-muted/60 transition-colors">
-                    <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(c.detectedAt).toLocaleString()}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-foreground">{c.passportName || c.passportNo || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{c.portal?.name}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{c.field}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{c.oldValue ?? '-'}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-emerald-600">{c.newValue ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

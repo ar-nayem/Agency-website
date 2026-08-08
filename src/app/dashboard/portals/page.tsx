@@ -444,36 +444,18 @@ export default function PortalsPage() {
       {tab === 'students' && (
         <div className="space-y-4">
           {portals.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setUniversityFilter('ALL')}
-                className={`px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-2 ${
-                  universityFilter === 'ALL'
-                    ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
-                    : 'bg-card text-foreground border-border hover:bg-muted'
-                }`}
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider shrink-0">{t('portals.university')}</label>
+              <select
+                value={universityFilter}
+                onChange={(e) => setUniversityFilter(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground max-w-xs"
               >
-                {t('portals.allUniversities')}
-                <span className={`text-xs px-1.5 py-0.5 rounded-md ${universityFilter === 'ALL' ? 'bg-white/20 dark:bg-black/10' : 'bg-muted'}`}>
-                  {universityCounts.ALL ?? 0}
-                </span>
-              </button>
-              {portals.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setUniversityFilter(p.id)}
-                  className={`px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-2 ${
-                    universityFilter === p.id
-                      ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
-                      : 'bg-card text-foreground border-border hover:bg-muted'
-                  }`}
-                >
-                  {p.name}
-                  <span className={`text-xs px-1.5 py-0.5 rounded-md ${universityFilter === p.id ? 'bg-white/20 dark:bg-black/10' : 'bg-muted'}`}>
-                    {universityCounts[p.id] ?? 0}
-                  </span>
-                </button>
-              ))}
+                <option value="ALL">{t('portals.allUniversities')} ({universityCounts.ALL ?? 0})</option>
+                {portals.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} ({universityCounts[p.id] ?? 0})</option>
+                ))}
+              </select>
             </div>
           )}
 
