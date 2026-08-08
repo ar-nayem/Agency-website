@@ -181,6 +181,11 @@ export async function runScheduledTick() {
   // Oldest-scanned (or never-scanned) portal goes first, so the rotation is fair.
   due.sort((a, b) => (a.lastScanAt?.getTime() || 0) - (b.lastScanAt?.getTime() || 0))
   const portal = due[0]
+  // Captured before scanOnePortal overwrites lastScanStatus/lastScanError —
+  // used below to tell a brand-new failure apart from the same portal
+  // failing the same way it already failed last tick.
+  const previousStatus = portal.lastScanStatus
+  const previousError = portal.lastScanError
 
   const roster = await buildLocalRoster()
   const { changes, error } = await scanOnePortal(portal, roster)
@@ -190,7 +195,8 @@ export async function runScheduledTick() {
     data: { lastPortalScanAt: new Date(), lastRunAt: new Date() },
   })
 
-  if (error) {
+  const isNewFailure = error && (previousStatus !== 'ERROR' || previousError !== error)
+  if (isNewFailure) {
     await sendNotification('University Portal Scan Error', `<h2>${portal.name}</h2><p>${error}</p>`)
   } else if (changes.length) {
     await sendNotification('University Portal Status Update', `<h2>Portal Scan Results</h2>${statusChangeHtml(portal.name, changes)}`)
