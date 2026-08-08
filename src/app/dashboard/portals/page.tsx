@@ -59,6 +59,8 @@ export default function PortalsPage() {
   const [matchFilter, setMatchFilter] = useState<'ALL' | 'MATCHED' | 'UNMATCHED'>('ALL')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({ ALL: 0 })
+  const [matchCounts, setMatchCounts] = useState<Record<string, number>>({ ALL: 0, MATCHED: 0, UNMATCHED: 0 })
 
   const [history, setHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -164,9 +166,15 @@ export default function PortalsPage() {
   async function fetchStudents() {
     setStudentsLoading(true)
     try {
-      const res = await fetch(`/api/portals/students?${buildStudentFilterParams()}`, { credentials: 'include' })
+      const [res, countsRes] = await Promise.all([
+        fetch(`/api/portals/students?${buildStudentFilterParams()}`, { credentials: 'include' }),
+        fetch(`/api/portals/students/counts?${buildStudentFilterParams()}`, { credentials: 'include' }),
+      ])
       const data = await res.json()
       setStudents(Array.isArray(data) ? data : [])
+      const countsData = await countsRes.json()
+      if (countsData?.byCategory) setCategoryCounts(countsData.byCategory)
+      if (countsData?.byMatch) setMatchCounts(countsData.byMatch)
     } catch {
       toast.error(t('portals.loadFailed'))
     } finally {
@@ -468,6 +476,9 @@ export default function PortalsPage() {
                 }`}
               >
                 {t(`portals.cat${cat.charAt(0)}${cat.slice(1).toLowerCase()}`)}
+                <span className={`text-xs px-1.5 py-0.5 rounded-md ${categoryFilter === cat ? 'bg-white/20' : 'bg-muted'}`}>
+                  {categoryCounts[cat] ?? 0}
+                </span>
               </button>
             ))}
           </div>
@@ -531,6 +542,9 @@ export default function PortalsPage() {
                 }`}
               >
                 {t(key)}
+                <span className={`text-xs px-1.5 py-0.5 rounded-md ${matchFilter === val ? 'bg-white/20' : 'bg-muted'}`}>
+                  {matchCounts[val] ?? 0}
+                </span>
               </button>
             ))}
           </div>
