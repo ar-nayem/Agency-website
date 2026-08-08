@@ -61,6 +61,7 @@ export default function PortalsPage() {
   const [dateTo, setDateTo] = useState('')
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({ ALL: 0 })
   const [matchCounts, setMatchCounts] = useState<Record<string, number>>({ ALL: 0, MATCHED: 0, UNMATCHED: 0 })
+  const [universityCounts, setUniversityCounts] = useState<Record<string, number>>({ ALL: 0 })
 
   const [history, setHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -175,6 +176,7 @@ export default function PortalsPage() {
       const countsData = await countsRes.json()
       if (countsData?.byCategory) setCategoryCounts(countsData.byCategory)
       if (countsData?.byMatch) setMatchCounts(countsData.byMatch)
+      if (countsData?.byPortal) setUniversityCounts(countsData.byPortal)
     } catch {
       toast.error(t('portals.loadFailed'))
     } finally {
@@ -456,9 +458,9 @@ export default function PortalsPage() {
                 onChange={(e) => setUniversityFilter(e.target.value)}
                 className="px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground max-w-xs"
               >
-                <option value="ALL">{t('portals.allUniversities')}</option>
+                <option value="ALL">{t('portals.allUniversities')} ({universityCounts.ALL ?? 0})</option>
                 {portals.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>{p.name} ({universityCounts[p.id] ?? 0})</option>
                 ))}
               </select>
             </div>
