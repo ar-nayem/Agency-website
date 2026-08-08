@@ -1,6 +1,6 @@
 import { prisma } from '@/src/lib/prisma'
 import { decryptCredential } from '@/src/lib/credentialCrypto'
-import { scanPortal, type PortalStudentRecord } from '@/src/lib/portalConnectors/at0086'
+import { scanPortal, type PortalStudentRecord } from '@/src/lib/portalConnectors'
 import { sendNotification } from '@/src/lib/email'
 
 interface StatusChange {
@@ -33,14 +33,14 @@ async function buildLocalRoster(): Promise<LocalRoster> {
 }
 
 async function scanOnePortal(
-  portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string },
+  portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string; platform: string },
   roster: LocalRoster
 ) {
   let students: PortalStudentRecord[]
   try {
     const baseUrl = new URL(portal.loginUrl).origin
     const password = decryptCredential(portal.passwordEnc)
-    students = await scanPortal(baseUrl, portal.username, password)
+    students = await scanPortal(portal.platform, baseUrl, portal.username, password)
   } catch (err: any) {
     await prisma.universityPortal.update({
       where: { id: portal.id },
@@ -84,11 +84,14 @@ async function scanOnePortal(
       create: {
         portalId: portal.id, externalId: s.externalId, passportNo: s.passportNo, passportName: s.passportName,
         program: s.program, applyStatus: s.applyStatus, admitStatus: s.admitStatus,
+        appliedAt: s.appliedAt ? new Date(s.appliedAt) : null,
         raw: JSON.stringify(s.raw), matchedStudentId,
       },
       update: {
         passportNo: s.passportNo, passportName: s.passportName, program: s.program,
-        applyStatus: s.applyStatus, admitStatus: s.admitStatus, raw: JSON.stringify(s.raw),
+        applyStatus: s.applyStatus, admitStatus: s.admitStatus,
+        appliedAt: s.appliedAt ? new Date(s.appliedAt) : undefined,
+        raw: JSON.stringify(s.raw),
         lastSeenAt: new Date(), matchedStudentId,
       },
     })

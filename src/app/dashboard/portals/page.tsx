@@ -5,13 +5,24 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Trash2, Pencil, Globe, RefreshCw, Search, X,
-  CheckCircle2, XCircle, Clock3, Users, History as HistoryIcon, Settings2, Info, Download
+  CheckCircle2, XCircle, Clock3, Users, History as HistoryIcon, Settings2, Info, Download, CalendarRange
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { format, subDays, startOfYear } from 'date-fns'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { categorizeAdmitStatus, STATUS_CATEGORIES, type StatusCategory } from '@/src/lib/portalStatus'
 
 type Tab = 'portals' | 'students' | 'history'
+
+// Kept local (rather than imported from portalConnectors) so this client
+// component never pulls in the connector modules' server-only deps (node
+// crypto, tesseract.js) into the browser bundle.
+const PLATFORM_OPTIONS = [
+  { value: 'AT0086', label: 'AT0086 (Script/Common.js AES login)' },
+  { value: 'ISTUDYEDU', label: 'iStudy Agent Platform (plain login)' },
+] as const
+
+type DatePreset = 'today' | '7d' | '30d' | 'year' | 'all'
 
 const CATEGORY_STYLES: Record<StatusCategory, string> = {
   PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
@@ -32,7 +43,7 @@ export default function PortalsPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
-  const [formData, setFormData] = useState({ name: '', loginUrl: '', username: '', password: '' })
+  const [formData, setFormData] = useState({ name: '', loginUrl: '', username: '', password: '', platform: 'AT0086' })
   const [submitting, setSubmitting] = useState(false)
   const [scanningId, setScanningId] = useState<string | null>(null)
 
@@ -45,6 +56,8 @@ export default function PortalsPage() {
   const [categoryFilter, setCategoryFilter] = useState<StatusCategory | 'ALL'>('ALL')
   const [universityFilter, setUniversityFilter] = useState<string>('ALL')
   const [matchFilter, setMatchFilter] = useState<'ALL' | 'MATCHED' | 'UNMATCHED'>('ALL')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const [history, setHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -197,20 +210,40 @@ export default function PortalsPage() {
     [universityScopedStudents, categoryFilter]
   )
 
+  const dateScopedStudents = useMemo(() => {
+    if (!dateFrom && !dateTo) return categoryScopedStudents
+    const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : -Infinity
+    const toTime = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : Infinity
+    return categoryScopedStudents.filter((s) => {
+      if (!s.appliedAt) return false
+      const t = new Date(s.appliedAt).getTime()
+      return t >= fromTime && t <= toTime
+    })
+  }, [categoryScopedStudents, dateFrom, dateTo])
+
+  function applyDatePreset(preset: DatePreset) {
+    const todayStr = format(new Date(), 'yyyy-MM-dd')
+    if (preset === 'today') { setDateFrom(todayStr); setDateTo(todayStr) }
+    else if (preset === '7d') { setDateFrom(format(subDays(new Date(), 6), 'yyyy-MM-dd')); setDateTo(todayStr) }
+    else if (preset === '30d') { setDateFrom(format(subDays(new Date(), 29), 'yyyy-MM-dd')); setDateTo(todayStr) }
+    else if (preset === 'year') { setDateFrom(format(startOfYear(new Date()), 'yyyy-MM-dd')); setDateTo(todayStr) }
+    else { setDateFrom(''); setDateTo('') }
+  }
+
   const matchCounts = useMemo(() => {
-    const counts = { ALL: categoryScopedStudents.length, MATCHED: 0, UNMATCHED: 0 }
-    for (const s of categoryScopedStudents) {
+    const counts = { ALL: dateScopedStudents.length, MATCHED: 0, UNMATCHED: 0 }
+    for (const s of dateScopedStudents) {
       if (s.matchedStudent) counts.MATCHED++
       else counts.UNMATCHED++
     }
     return counts
-  }, [categoryScopedStudents])
+  }, [dateScopedStudents])
 
   const filteredStudents = useMemo(() => {
-    if (matchFilter === 'MATCHED') return categoryScopedStudents.filter((s) => !!s.matchedStudent)
-    if (matchFilter === 'UNMATCHED') return categoryScopedStudents.filter((s) => !s.matchedStudent)
-    return categoryScopedStudents
-  }, [categoryScopedStudents, matchFilter])
+    if (matchFilter === 'MATCHED') return dateScopedStudents.filter((s) => !!s.matchedStudent)
+    if (matchFilter === 'UNMATCHED') return dateScopedStudents.filter((s) => !s.matchedStudent)
+    return dateScopedStudents
+  }, [dateScopedStudents, matchFilter])
 
   async function fetchHistory() {
     setHistoryLoading(true)
@@ -227,13 +260,13 @@ export default function PortalsPage() {
 
   function openAdd() {
     setEditing(null)
-    setFormData({ name: '', loginUrl: '', username: '', password: '' })
+    setFormData({ name: '', loginUrl: '', username: '', password: '', platform: 'AT0086' })
     setShowForm(true)
   }
 
   function openEdit(p: any) {
     setEditing(p)
-    setFormData({ name: p.name, loginUrl: p.loginUrl, username: p.username, password: '' })
+    setFormData({ name: p.name, loginUrl: p.loginUrl, username: p.username, password: '', platform: p.platform || 'AT0086' })
     setShowForm(true)
   }
 
@@ -243,7 +276,7 @@ export default function PortalsPage() {
     try {
       const url = editing ? `/api/portals/${editing.id}` : '/api/portals'
       const method = editing ? 'PATCH' : 'POST'
-      const body: any = { name: formData.name, loginUrl: formData.loginUrl, username: formData.username }
+      const body: any = { name: formData.name, loginUrl: formData.loginUrl, username: formData.username, platform: formData.platform }
       if (formData.password) body.password = formData.password
       const res = await fetch(url, {
         method,
@@ -478,6 +511,49 @@ export default function PortalsPage() {
             ))}
           </div>
 
+          <div className="bg-card rounded-2xl border border-border/60 p-4 space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider shrink-0 flex items-center gap-1.5">
+                <CalendarRange className="w-3.5 h-3.5" /> {t('portals.appliedBetween')}
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-border bg-background text-sm text-foreground"
+              />
+              <span className="text-muted-foreground text-sm">{t('portals.dateTo')}</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-border bg-background text-sm text-foreground"
+              />
+              {(dateFrom || dateTo) && (
+                <button onClick={() => applyDatePreset('all')} className="text-xs text-muted-foreground hover:text-foreground underline">
+                  {t('portals.clearDates')}
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                ['today', 'portals.presetToday'],
+                ['7d', 'portals.preset7d'],
+                ['30d', 'portals.preset30d'],
+                ['year', 'portals.presetYear'],
+                ['all', 'portals.presetAll'],
+              ] as const).map(([key, labelKey]) => (
+                <button
+                  key={key}
+                  onClick={() => applyDatePreset(key)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-background text-foreground hover:bg-muted transition"
+                >
+                  {t(labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             {([
               ['ALL', 'portals.matchAll'],
@@ -534,6 +610,7 @@ export default function PortalsPage() {
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.passportName')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.passportNo')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.program')}</th>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.appliedAt')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.status')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.lastSeen')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.matchedStudent')}</th>
@@ -541,9 +618,9 @@ export default function PortalsPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {studentsLoading ? (
-                    <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
+                    <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
                   ) : filteredStudents.length === 0 ? (
-                    <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
+                    <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
                   ) : (
                     filteredStudents.map((s) => (
                       <tr key={s.id} className="hover:bg-muted/60 transition-colors">
@@ -551,6 +628,7 @@ export default function PortalsPage() {
                         <td className="px-6 py-4 text-sm font-medium text-foreground">{s.passportName || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{s.passportNo || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{s.program || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{s.appliedAt ? new Date(s.appliedAt).toLocaleDateString() : '-'}</td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${CATEGORY_STYLES[s.category as StatusCategory]}`}>
                             {t(`portals.cat${s.category.charAt(0)}${s.category.slice(1).toLowerCase()}`)}
@@ -622,6 +700,18 @@ export default function PortalsPage() {
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('portals.name')}</label>
                 <input required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t('portals.namePlaceholder')} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('portals.platform')}</label>
+                <select
+                  value={formData.platform}
+                  onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                  className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground"
+                >
+                  {PLATFORM_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('portals.loginUrl')}</label>

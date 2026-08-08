@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { createWorker } from 'tesseract.js'
+import type { PortalStudentRecord } from './types'
 
 // Connector for the AT0086 (在华国际) international-student platform, used by
 // many Chinese university admin portals (e.g. hezeu.at0086.cn). Reverse-engineered
@@ -150,15 +151,7 @@ export async function login(baseUrl: string, username: string, password: string,
   return { success: false, message: lastMessage || 'Login failed after retries', jar, crypto: portalCrypto }
 }
 
-export interface PortalStudentRecord {
-  externalId: string
-  passportNo: string | null
-  passportName: string | null
-  program: string | null
-  applyStatus: string | null
-  admitStatus: string | null
-  raw: any
-}
+export type { PortalStudentRecord }
 
 export async function fetchAllStudents(
   baseUrl: string,
@@ -196,6 +189,7 @@ export async function fetchAllStudents(
         program: row.Pnamen || row.Pname || null,
         applyStatus: row.ApplyStatus != null ? String(row.ApplyStatus) : null,
         admitStatus: row.AdmitStatus != null ? String(row.AdmitStatus) : null,
+        appliedAt: row.ApplyAt || null,
         raw: row,
       })
     }

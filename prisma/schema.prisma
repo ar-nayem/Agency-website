@@ -284,6 +284,7 @@ model PortalStudentSnapshot {
   program      String?
   applyStatus  String?
   admitStatus  String?
+  appliedAt    DateTime?
   raw          String?
   lastSeenAt   DateTime @default(now())
   createdAt    DateTime @default(now())

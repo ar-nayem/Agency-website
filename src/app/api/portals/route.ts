@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()
-    const { name, loginUrl, username, password } = body
+    const { name, loginUrl, username, password, platform } = body
     if (!name || !loginUrl || !username || !password) {
       return NextResponse.json({ error: 'name, loginUrl, username, password are required' }, { status: 400 })
     }
@@ -54,9 +54,10 @@ export async function POST(req: NextRequest) {
       data: {
         name, loginUrl, username,
         passwordEnc: encryptCredential(password),
+        platform: platform || undefined,
         createdById: user.id,
       },
-      select: { id: true, name: true, loginUrl: true, username: true, isActive: true, createdAt: true },
+      select: { id: true, name: true, loginUrl: true, username: true, isActive: true, platform: true, createdAt: true },
     })
 
     await logActivity(user.id, 'PORTAL_CREATED', `Added university portal: ${portal.name}`)
