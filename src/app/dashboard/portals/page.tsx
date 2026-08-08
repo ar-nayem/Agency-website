@@ -52,6 +52,7 @@ export default function PortalsPage() {
 
   const [students, setStudents] = useState<any[]>([])
   const [studentsLoading, setStudentsLoading] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
   const [studentSearch, setStudentSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<StatusCategory | 'ALL'>('ALL')
   const [universityFilter, setUniversityFilter] = useState<string>('ALL')
@@ -99,9 +100,12 @@ export default function PortalsPage() {
   }, [session])
 
   useEffect(() => {
-    if (tab === 'students') fetchStudents()
+    // Students intentionally does NOT auto-fetch here — that dataset can be
+    // large (every snapshot row across every portal, with relations), and
+    // this VPS is memory-constrained. Loading it is gated behind an explicit
+    // Search click below instead of firing on every tab-open/keystroke.
     if (tab === 'history') fetchHistory()
-  }, [tab, studentSearch])
+  }, [tab])
 
   async function fetchPortals() {
     setLoading(true)
@@ -146,28 +150,34 @@ export default function PortalsPage() {
     }
   }
 
+  function buildStudentFilterParams() {
+    const params = new URLSearchParams()
+    if (studentSearch) params.set('search', studentSearch)
+    if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
+    if (universityFilter !== 'ALL') params.set('portalId', universityFilter)
+    if (matchFilter !== 'ALL') params.set('matched', matchFilter === 'MATCHED' ? '1' : '0')
+    if (dateFrom) params.set('dateFrom', dateFrom)
+    if (dateTo) params.set('dateTo', dateTo)
+    return params
+  }
+
   async function fetchStudents() {
     setStudentsLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (studentSearch) params.set('search', studentSearch)
-      const res = await fetch(`/api/portals/students?${params}`, { credentials: 'include' })
+      const res = await fetch(`/api/portals/students?${buildStudentFilterParams()}`, { credentials: 'include' })
       const data = await res.json()
       setStudents(Array.isArray(data) ? data : [])
     } catch {
       toast.error(t('portals.loadFailed'))
     } finally {
       setStudentsLoading(false)
+      setHasSearched(true)
     }
   }
 
   async function exportStudents() {
     try {
-      const params = new URLSearchParams()
-      if (studentSearch) params.set('search', studentSearch)
-      if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
-      if (universityFilter !== 'ALL') params.set('portalId', universityFilter)
-      if (matchFilter !== 'ALL') params.set('matched', matchFilter === 'MATCHED' ? '1' : '0')
+      const params = buildStudentFilterParams()
       const res = await fetch(`/api/portals/students/export?${params}`, { credentials: 'include' })
       if (!res.ok) throw new Error()
       const blob = await res.blob()
@@ -182,44 +192,13 @@ export default function PortalsPage() {
     }
   }
 
-  const categorizedStudents = useMemo(
+  // Filtering (category/university/match/date/text) now all happens server-side —
+  // the client only ever holds the rows matching the search that was actually
+  // run, not the whole table. This just adds the display-only category label.
+  const filteredStudents = useMemo(
     () => students.map((s) => ({ ...s, category: categorizeAdmitStatus(s.admitStatus) })),
     [students]
   )
-
-  const universityScopedStudents = useMemo(
-    () => (universityFilter === 'ALL' ? categorizedStudents : categorizedStudents.filter((s) => s.portalId === universityFilter)),
-    [categorizedStudents, universityFilter]
-  )
-
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: universityScopedStudents.length }
-    for (const cat of STATUS_CATEGORIES) counts[cat] = 0
-    for (const s of universityScopedStudents) counts[s.category] = (counts[s.category] || 0) + 1
-    return counts
-  }, [universityScopedStudents])
-
-  const universityCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: categorizedStudents.length }
-    for (const s of categorizedStudents) counts[s.portalId] = (counts[s.portalId] || 0) + 1
-    return counts
-  }, [categorizedStudents])
-
-  const categoryScopedStudents = useMemo(
-    () => (categoryFilter === 'ALL' ? universityScopedStudents : universityScopedStudents.filter((s) => s.category === categoryFilter)),
-    [universityScopedStudents, categoryFilter]
-  )
-
-  const dateScopedStudents = useMemo(() => {
-    if (!dateFrom && !dateTo) return categoryScopedStudents
-    const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : -Infinity
-    const toTime = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : Infinity
-    return categoryScopedStudents.filter((s) => {
-      if (!s.appliedAt) return false
-      const t = new Date(s.appliedAt).getTime()
-      return t >= fromTime && t <= toTime
-    })
-  }, [categoryScopedStudents, dateFrom, dateTo])
 
   function applyDatePreset(preset: DatePreset) {
     const todayStr = format(new Date(), 'yyyy-MM-dd')
@@ -229,21 +208,6 @@ export default function PortalsPage() {
     else if (preset === 'year') { setDateFrom(format(startOfYear(new Date()), 'yyyy-MM-dd')); setDateTo(todayStr) }
     else { setDateFrom(''); setDateTo('') }
   }
-
-  const matchCounts = useMemo(() => {
-    const counts = { ALL: dateScopedStudents.length, MATCHED: 0, UNMATCHED: 0 }
-    for (const s of dateScopedStudents) {
-      if (s.matchedStudent) counts.MATCHED++
-      else counts.UNMATCHED++
-    }
-    return counts
-  }, [dateScopedStudents])
-
-  const filteredStudents = useMemo(() => {
-    if (matchFilter === 'MATCHED') return dateScopedStudents.filter((s) => !!s.matchedStudent)
-    if (matchFilter === 'UNMATCHED') return dateScopedStudents.filter((s) => !s.matchedStudent)
-    return dateScopedStudents
-  }, [dateScopedStudents, matchFilter])
 
   async function fetchHistory() {
     setHistoryLoading(true)
@@ -484,9 +448,9 @@ export default function PortalsPage() {
                 onChange={(e) => setUniversityFilter(e.target.value)}
                 className="px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground max-w-xs"
               >
-                <option value="ALL">{t('portals.allUniversities')} ({universityCounts.ALL ?? 0})</option>
+                <option value="ALL">{t('portals.allUniversities')}</option>
                 {portals.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({universityCounts[p.id] ?? 0})</option>
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
             </div>
@@ -504,9 +468,6 @@ export default function PortalsPage() {
                 }`}
               >
                 {t(`portals.cat${cat.charAt(0)}${cat.slice(1).toLowerCase()}`)}
-                <span className={`text-xs px-1.5 py-0.5 rounded-md ${categoryFilter === cat ? 'bg-white/20' : 'bg-muted'}`}>
-                  {categoryCounts[cat] ?? 0}
-                </span>
               </button>
             ))}
           </div>
@@ -570,9 +531,6 @@ export default function PortalsPage() {
                 }`}
               >
                 {t(key)}
-                <span className={`text-xs px-1.5 py-0.5 rounded-md ${matchFilter === val ? 'bg-white/20' : 'bg-muted'}`}>
-                  {matchCounts[val] ?? 0}
-                </span>
               </button>
             ))}
           </div>
@@ -584,7 +542,10 @@ export default function PortalsPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <form
+            onSubmit={(e) => { e.preventDefault(); fetchStudents() }}
+            className="flex items-center gap-3 flex-wrap"
+          >
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -595,12 +556,23 @@ export default function PortalsPage() {
               />
             </div>
             <button
+              type="submit"
+              disabled={studentsLoading}
+              className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm font-medium shrink-0 disabled:opacity-60"
+            >
+              <Search className="w-4 h-4" /> {studentsLoading ? t('portals.searching') : t('portals.searchButton')}
+            </button>
+            <button
+              type="button"
               onClick={exportStudents}
               className="px-4 py-2.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-xl hover:bg-emerald-100 transition flex items-center gap-2 text-sm font-medium shrink-0"
             >
               <Download className="w-4 h-4" /> {t('portals.exportExcel')}
             </button>
-          </div>
+          </form>
+          {hasSearched && !studentsLoading && (
+            <p className="text-xs text-muted-foreground">{filteredStudents.length} {t('portals.resultsFound')}</p>
+          )}
           <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -619,6 +591,8 @@ export default function PortalsPage() {
                 <tbody className="divide-y divide-border">
                   {studentsLoading ? (
                     <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
+                  ) : !hasSearched ? (
+                    <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.chooseFiltersPrompt')}</td></tr>
                   ) : filteredStudents.length === 0 ? (
                     <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
                   ) : (

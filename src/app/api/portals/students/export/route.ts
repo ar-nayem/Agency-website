@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search')
     const category = searchParams.get('category')
     const matched = searchParams.get('matched')
+    const dateFrom = searchParams.get('dateFrom')
+    const dateTo = searchParams.get('dateTo')
 
     const where: any = {}
     if (portalId) where.portalId = portalId
@@ -33,6 +35,11 @@ export async function GET(req: NextRequest) {
         { passportName: { contains: search } },
         { passportNo: { contains: search } },
       ]
+    }
+    if (dateFrom || dateTo) {
+      where.appliedAt = {}
+      if (dateFrom) where.appliedAt.gte = new Date(`${dateFrom}T00:00:00`)
+      if (dateTo) where.appliedAt.lte = new Date(`${dateTo}T23:59:59.999`)
     }
 
     const students = await prisma.portalStudentSnapshot.findMany({
