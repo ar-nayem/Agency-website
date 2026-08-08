@@ -45,12 +45,13 @@ export async function sendMail(to: string, subject: string, html: string) {
   }
 }
 
-export function passwordResetTemplate(name: string, resetUrl: string) {
+export function passwordResetTemplate(name: string, code: string) {
   return `
     <h2>Reset your password</h2>
     <p>Hi ${name},</p>
-    <p>We received a request to reset your password. Click the link below to choose a new one — it expires in 1 hour.</p>
-    <p><a href="${resetUrl}">${resetUrl}</a></p>
+    <p>Your password reset code is:</p>
+    <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px;">${code}</p>
+    <p>Enter this code on the reset page to choose a new password. It expires in 15 minutes.</p>
     <p>If you didn't request this, you can safely ignore this email.</p>
   `
 }
