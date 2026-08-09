@@ -4,8 +4,10 @@ import { prisma } from '@/src/lib/prisma'
 import { getSessionUser, isAdminRole } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import JSZip from 'jszip'
-import { readFile } from 'fs/promises'
+import { createReadStream } from 'fs'
+import { access } from 'fs/promises'
 import { join } from 'path'
+import { Readable } from 'stream'
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,28 +44,34 @@ export async function POST(req: NextRequest) {
       const usedNames = new Map<string, number>()
 
       for (const doc of student.documents) {
+        const filePath = join(process.cwd(), 'public', 'uploads', doc.filename)
         try {
-          const filePath = join(process.cwd(), 'public', 'uploads', doc.filename)
-          const fileData = await readFile(filePath)
-
-          const ext = doc.originalName.includes('.') ? doc.originalName.split('.').pop() : ''
-          const baseName = sanitize(labelByKey.get(doc.category) || doc.originalName.replace(/\.[^.]+$/, ''))
-
-          const count = usedNames.get(baseName) || 0
-          usedNames.set(baseName, count + 1)
-          const suffix = count > 0 ? ` (${count + 1})` : ''
-          const finalName = ext ? `${baseName}${suffix}.${ext}` : `${baseName}${suffix}`
-
-          studentFolder.file(finalName, fileData)
+          await access(filePath)
         } catch {
-          // Skip files that can't be read
+          continue // Skip files that no longer exist on disk
         }
+
+        const ext = doc.originalName.includes('.') ? doc.originalName.split('.').pop() : ''
+        const baseName = sanitize(labelByKey.get(doc.category) || doc.originalName.replace(/\.[^.]+$/, ''))
+
+        const count = usedNames.get(baseName) || 0
+        usedNames.set(baseName, count + 1)
+        const suffix = count > 0 ? ` (${count + 1})` : ''
+        const finalName = ext ? `${baseName}${suffix}.${ext}` : `${baseName}${suffix}`
+
+        // Streamed in rather than read fully into memory up front — this
+        // VPS has hit its RAM limit and had the whole app OOM-killed by the
+        // kernel when every selected student's files were buffered at once
+        // before zipping even started. Streaming keeps peak memory roughly
+        // constant regardless of how many/how large the files are.
+        studentFolder.file(finalName, createReadStream(filePath))
       }
     }
 
-    const zipBuffer = await zip.generateAsync({ type: 'uint8array' })
-    
-    return new NextResponse(Buffer.from(zipBuffer), {
+    const nodeStream = zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true, compression: 'STORE' })
+    const webStream = Readable.toWeb(nodeStream as unknown as Readable) as unknown as ReadableStream
+
+    return new NextResponse(webStream, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="documents-batch-${Date.now()}.zip"`
