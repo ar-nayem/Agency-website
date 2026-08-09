@@ -211,7 +211,7 @@ export default function PortalsPage() {
   // the client only ever holds the rows matching the search that was actually
   // run, not the whole table. This just adds the display-only category label.
   const filteredStudents = useMemo(
-    () => students.map((s) => ({ ...s, category: categorizeAdmitStatus(s.admitStatus) })),
+    () => students.map((s) => ({ ...s, category: categorizeAdmitStatus(s.admitStatus, s.portalId) })),
     [students]
   )
 
@@ -674,10 +674,10 @@ export default function PortalsPage() {
                       <td className="px-6 py-4 text-sm font-medium text-foreground">{c.passportName || c.passportNo || '-'}</td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">{c.field === 'admitStatus' ? t('portals.admitStatus') : t('portals.applyStatus')}</td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">
-                        {c.field === 'admitStatus' ? categoryLabel(categorizeAdmitStatus(c.oldValue), t) : (c.oldValue ?? '-')}
+                        {c.field === 'admitStatus' ? categoryLabel(categorizeAdmitStatus(c.oldValue, c.portalId), t) : (c.oldValue ?? '-')}
                       </td>
                       <td className="px-6 py-4 text-sm font-semibold text-emerald-600">
-                        {c.field === 'admitStatus' ? categoryLabel(categorizeAdmitStatus(c.newValue), t) : (c.newValue ?? '-')}
+                        {c.field === 'admitStatus' ? categoryLabel(categorizeAdmitStatus(c.newValue, c.portalId), t) : (c.newValue ?? '-')}
                       </td>
                     </tr>
                   ))

@@ -112,12 +112,12 @@ async function scanOnePortal(
   return { changes, error: null as string | null }
 }
 
-function statusChangeHtml(portalName: string, changes: StatusChange[]) {
+function statusChangeHtml(portalName: string, portalId: string, changes: StatusChange[]) {
   const rows = changes
     .map((c) => {
       const fieldLabel = c.field === 'admitStatus' ? 'Admit Status' : 'Apply Status'
       const [oldLabel, newLabel] = c.field === 'admitStatus'
-        ? [CATEGORY_LABELS[categorizeAdmitStatus(c.oldValue)], CATEGORY_LABELS[categorizeAdmitStatus(c.newValue)]]
+        ? [CATEGORY_LABELS[categorizeAdmitStatus(c.oldValue, portalId)], CATEGORY_LABELS[categorizeAdmitStatus(c.newValue, portalId)]]
         : [c.oldValue ?? '—', c.newValue ?? '—']
       return `<li><strong>${c.passportName || 'Unknown'}</strong> (${c.passportNo || c.externalId}) — ${fieldLabel}: ${oldLabel} → ${newLabel}</li>`
     })
@@ -137,7 +137,7 @@ export async function runScan(onlyPortalId?: string) {
   for (const portal of portals) {
     const { changes, error } = await scanOnePortal(portal, roster)
     if (error) errors.push({ portal: portal.name, error })
-    if (changes.length) html += statusChangeHtml(portal.name, changes)
+    if (changes.length) html += statusChangeHtml(portal.name, portal.id, changes)
   }
 
   if (errors.length) {
@@ -203,7 +203,7 @@ export async function runScheduledTick() {
   if (isNewFailure) {
     await sendNotification('University Portal Scan Error', `<h2>${portal.name}</h2><p>${error}</p>`)
   } else if (changes.length) {
-    await sendNotification('University Portal Status Update', `<h2>Portal Scan Results</h2>${statusChangeHtml(portal.name, changes)}`)
+    await sendNotification('University Portal Status Update', `<h2>Portal Scan Results</h2>${statusChangeHtml(portal.name, portal.id, changes)}`)
   }
 
   return { scanned: portal.name, changesCount: changes.length, error }

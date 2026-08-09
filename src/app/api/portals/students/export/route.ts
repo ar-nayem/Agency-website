@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       orderBy: { lastSeenAt: 'desc' },
     })
 
-    let filtered = category ? students.filter((s) => categorizeAdmitStatus(s.admitStatus) === category) : students
+    let filtered = category ? students.filter((s) => categorizeAdmitStatus(s.admitStatus, s.portalId) === category) : students
     if (matched === '1') filtered = filtered.filter((s) => !!s.matchedStudent)
     if (matched === '0') filtered = filtered.filter((s) => !s.matchedStudent)
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       'Name': s.passportName || '',
       'Passport No.': s.passportNo || '',
       'Program': s.program || '',
-      'Status': CATEGORY_LABELS[categorizeAdmitStatus(s.admitStatus)],
+      'Status': CATEGORY_LABELS[categorizeAdmitStatus(s.admitStatus, s.portalId)],
       'Raw Admit Status Code': s.admitStatus || '',
       'Last Seen': s.lastSeenAt.toISOString(),
       'Matched Local Student': s.matchedStudent?.fullName || '',

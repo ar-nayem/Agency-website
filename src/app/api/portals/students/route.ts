@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     })
 
     if (category) {
-      students = students.filter((s) => categorizeAdmitStatus(s.admitStatus) === category)
+      students = students.filter((s) => categorizeAdmitStatus(s.admitStatus, s.portalId) === category)
     }
 
     return NextResponse.json(students)

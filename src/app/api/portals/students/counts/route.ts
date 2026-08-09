@@ -10,6 +10,13 @@ import { NextRequest, NextResponse } from 'next/server'
 // aggregate in the database, so this stays cheap regardless of table size,
 // unlike the old client-side approach that required holding every matching
 // row (with relations) in memory just to count them.
+//
+// Category is portal-dependent (the same raw admitStatus code can mean
+// different things at different universities — see portalStatus.ts), so
+// unlike a normal column it has no DB-expressible WHERE clause. Every
+// category-aware query below first resolves category -> the actual set of
+// (portalId, code) pairs via the small groupBy in resolveCategoryPairs,
+// then filters on those pairs explicitly.
 export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser(req)
@@ -36,17 +43,27 @@ export async function GET(req: NextRequest) {
       if (dateTo) common.appliedAt.lte = new Date(`${dateTo}T23:59:59.999`)
     }
 
-    // Which raw admitStatus codes fall into the selected category — a pure
-    // function of the code, but the actual codes in use aren't knowable
-    // without asking the DB once (categorizeAdmitStatus has no DB-expressible
-    // form since "PROCESSING" is "anything not in the known map").
-    let categoryCodes: (string | null)[] | null = null
-    if (category) {
-      const allCodes = await prisma.portalStudentSnapshot.groupBy({ by: ['admitStatus'], where: common })
-      categoryCodes = allCodes.map((g) => g.admitStatus).filter((code) => categorizeAdmitStatus(code) === category)
+    const categoryWhereClause = async (cat: string): Promise<any> => {
+      const groups = await prisma.portalStudentSnapshot.groupBy({ by: ['portalId', 'admitStatus'], where: common })
+      const byPortal = new Map<string, (string | null)[]>()
+      for (const g of groups) {
+        if (categorizeAdmitStatus(g.admitStatus, g.portalId) !== cat) continue
+        const codes = byPortal.get(g.portalId) || []
+        codes.push(g.admitStatus)
+        byPortal.set(g.portalId, codes)
+      }
+      if (byPortal.size === 0) return { id: '__none__' } // matches nothing
+      return {
+        OR: Array.from(byPortal.entries()).map(([pid, codes]) => ({
+          portalId: pid,
+          OR: [
+            ...(codes.some((c: string | null) => c == null) ? [{ admitStatus: null }] : []),
+            ...(codes.some((c: string | null) => c != null) ? [{ admitStatus: { in: codes.filter((c): c is string => c != null) } }] : []),
+          ],
+        })),
+      }
     }
 
-    const withCategory = (where: any) => (categoryCodes ? { ...where, admitStatus: { in: categoryCodes } } : where)
     const withPortal = (where: any) => (portalId ? { ...where, portalId } : where)
     const withMatched = (where: any) => {
       if (matched === '1') return { ...where, matchedStudentId: { not: null } }
@@ -57,11 +74,11 @@ export async function GET(req: NextRequest) {
     // Each dimension's counts apply every OTHER filter, but not its own —
     // a chip needs to show what selecting IT would return.
     const categoryScope = withMatched(withPortal(common))
-    const matchScope = withCategory(withPortal(common))
-    const portalScope = withMatched(withCategory(common))
+    const matchScope = category ? { ...withPortal(common), ...(await categoryWhereClause(category)) } : withPortal(common)
+    const portalScope = category ? { ...withMatched(common), ...(await categoryWhereClause(category)) } : withMatched(common)
 
     const [categoryGroups, matchedCount, unmatchedCount, portalGroups] = await Promise.all([
-      prisma.portalStudentSnapshot.groupBy({ by: ['admitStatus'], where: categoryScope, _count: true }),
+      prisma.portalStudentSnapshot.groupBy({ by: ['portalId', 'admitStatus'], where: categoryScope, _count: true }),
       prisma.portalStudentSnapshot.count({ where: { ...matchScope, matchedStudentId: { not: null } } }),
       prisma.portalStudentSnapshot.count({ where: { ...matchScope, matchedStudentId: null } }),
       prisma.portalStudentSnapshot.groupBy({ by: ['portalId'], where: portalScope, _count: true }),
@@ -70,7 +87,7 @@ export async function GET(req: NextRequest) {
     const byCategory: Record<string, number> = { ALL: 0 }
     for (const cat of STATUS_CATEGORIES) byCategory[cat] = 0
     for (const g of categoryGroups) {
-      const cat = categorizeAdmitStatus(g.admitStatus)
+      const cat = categorizeAdmitStatus(g.admitStatus, g.portalId)
       byCategory[cat] = (byCategory[cat] || 0) + g._count
       byCategory.ALL += g._count
     }
