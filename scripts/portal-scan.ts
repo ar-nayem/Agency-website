@@ -2,6 +2,7 @@ import { prisma } from '@/src/lib/prisma'
 import { decryptCredential } from '@/src/lib/credentialCrypto'
 import { scanPortal, type PortalStudentRecord } from '@/src/lib/portalConnectors'
 import { sendNotification } from '@/src/lib/email'
+import { categorizeAdmitStatus, CATEGORY_LABELS } from '@/src/lib/portalStatus'
 
 interface StatusChange {
   externalId: string
@@ -113,10 +114,13 @@ async function scanOnePortal(
 
 function statusChangeHtml(portalName: string, changes: StatusChange[]) {
   const rows = changes
-    .map(
-      (c) =>
-        `<li><strong>${c.passportName || 'Unknown'}</strong> (${c.passportNo || c.externalId}) — ${c.field}: ${c.oldValue ?? '—'} → ${c.newValue ?? '—'}</li>`
-    )
+    .map((c) => {
+      const fieldLabel = c.field === 'admitStatus' ? 'Admit Status' : 'Apply Status'
+      const [oldLabel, newLabel] = c.field === 'admitStatus'
+        ? [CATEGORY_LABELS[categorizeAdmitStatus(c.oldValue)], CATEGORY_LABELS[categorizeAdmitStatus(c.newValue)]]
+        : [c.oldValue ?? '—', c.newValue ?? '—']
+      return `<li><strong>${c.passportName || 'Unknown'}</strong> (${c.passportNo || c.externalId}) — ${fieldLabel}: ${oldLabel} → ${newLabel}</li>`
+    })
     .join('')
   return `<h3>${portalName}</h3><ul>${rows}</ul>`
 }

@@ -25,12 +25,16 @@ const PLATFORM_OPTIONS = [
 type DatePreset = 'today' | '7d' | '30d' | 'year' | 'all'
 
 const CATEGORY_STYLES: Record<StatusCategory, string> = {
+  UNSUBMITTED: 'bg-muted text-muted-foreground border-border',
   PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
   PROCESSING: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400 border-blue-200',
   ACCEPTED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
   REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200',
   REVOKED: 'bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300 border-slate-300',
-  UNKNOWN: 'bg-muted text-muted-foreground border-border',
+}
+
+function categoryLabel(cat: StatusCategory, t: (key: string) => string) {
+  return t(`portals.cat${cat.charAt(0)}${cat.slice(1).toLowerCase()}`)
 }
 
 export default function PortalsPage() {
@@ -667,9 +671,13 @@ export default function PortalsPage() {
                       <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(c.detectedAt).toLocaleString()}</td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">{c.portal?.name}</td>
                       <td className="px-6 py-4 text-sm font-medium text-foreground">{c.passportName || c.passportNo || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-muted-foreground">{c.field}</td>
-                      <td className="px-6 py-4 text-sm text-muted-foreground">{c.oldValue ?? '-'}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-emerald-600">{c.newValue ?? '-'}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{c.field === 'admitStatus' ? t('portals.admitStatus') : t('portals.applyStatus')}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
+                        {c.field === 'admitStatus' ? categoryLabel(categorizeAdmitStatus(c.oldValue), t) : (c.oldValue ?? '-')}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-semibold text-emerald-600">
+                        {c.field === 'admitStatus' ? categoryLabel(categorizeAdmitStatus(c.newValue), t) : (c.newValue ?? '-')}
+                      </td>
                     </tr>
                   ))
                 )}

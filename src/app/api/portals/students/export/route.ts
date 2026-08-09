@@ -4,16 +4,7 @@ import { prisma } from '@/src/lib/prisma'
 import { getSessionUser, canAccessPortals } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
-import { categorizeAdmitStatus } from '@/src/lib/portalStatus'
-
-const CATEGORY_LABELS: Record<string, string> = {
-  PENDING: 'Pending',
-  PROCESSING: 'Processing',
-  ACCEPTED: 'Accepted',
-  REJECTED: 'Rejected',
-  REVOKED: 'Revoked',
-  UNKNOWN: 'Unknown',
-}
+import { categorizeAdmitStatus, CATEGORY_LABELS } from '@/src/lib/portalStatus'
 
 export async function GET(req: NextRequest) {
   try {

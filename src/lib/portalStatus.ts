@@ -7,7 +7,7 @@
 // platform uses different codes for the same concepts, this may need a
 // per-portal override — there's exactly one portal today, so a single
 // shared mapping is the right amount of engineering for now.
-export type StatusCategory = 'PENDING' | 'PROCESSING' | 'ACCEPTED' | 'REJECTED' | 'REVOKED' | 'UNKNOWN'
+export type StatusCategory = 'UNSUBMITTED' | 'PENDING' | 'PROCESSING' | 'ACCEPTED' | 'REJECTED' | 'REVOKED'
 
 const KNOWN: Record<string, StatusCategory> = {
   '1': 'PENDING',
@@ -17,8 +17,19 @@ const KNOWN: Record<string, StatusCategory> = {
 }
 
 export function categorizeAdmitStatus(code: string | null | undefined): StatusCategory {
-  if (code == null || code === '') return 'UNKNOWN'
+  // No admitStatus set yet means the application hasn't reached an admission
+  // decision stage at all — i.e. not submitted for admission review, not "unknown".
+  if (code == null || code === '') return 'UNSUBMITTED'
   return KNOWN[code] || 'PROCESSING'
 }
 
-export const STATUS_CATEGORIES: StatusCategory[] = ['PENDING', 'PROCESSING', 'ACCEPTED', 'REJECTED', 'REVOKED']
+export const CATEGORY_LABELS: Record<StatusCategory, string> = {
+  UNSUBMITTED: 'Unsubmitted',
+  PENDING: 'Pending',
+  PROCESSING: 'Processing',
+  ACCEPTED: 'Accepted',
+  REJECTED: 'Rejected',
+  REVOKED: 'Revoked',
+}
+
+export const STATUS_CATEGORIES: StatusCategory[] = ['UNSUBMITTED', 'PENDING', 'PROCESSING', 'ACCEPTED', 'REJECTED', 'REVOKED']
