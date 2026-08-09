@@ -101,12 +101,21 @@ function StudentsPageInner() {
         credentials: 'include',
         body: JSON.stringify({ studentIds: selectedStudents })
       })
+      if (!res.ok) {
+        // Was previously falling through to res.blob() even on 401/500 —
+        // downloading the JSON error body as a fake, corrupt ".zip" while
+        // still reporting success.
+        const data = await res.json().catch(() => null)
+        toast.error(data?.error || t('students.batchDownloadFailed'))
+        return
+      }
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = `documents-batch-${Date.now()}.zip`
       a.click()
+      window.URL.revokeObjectURL(url)
       toast.success(t('students.batchDownloadStarted'))
     } catch {
       toast.error(t('students.batchDownloadFailed'))
