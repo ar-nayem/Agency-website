@@ -112,7 +112,7 @@ export async function getChatbotReply(message: string, user: SessionUser) {
 
   try {
     const response = await gemini.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-flash-lite-latest',
       contents: text,
       config: {
         systemInstruction: systemPrompt,
