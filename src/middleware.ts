@@ -9,7 +9,15 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow public routes
-  if (pathname === '/login' || pathname.startsWith('/api/auth') || pathname === '/api/analytics/track') {
+  const isPublicOffersRead = pathname === '/api/offers' && request.method === 'GET'
+  const isChatbot = pathname === '/api/chatbot'
+  if (
+    pathname === '/login' ||
+    pathname.startsWith('/api/auth') ||
+    pathname === '/api/analytics/track' ||
+    isPublicOffersRead ||
+    isChatbot
+  ) {
     if (token && pathname === '/login') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }

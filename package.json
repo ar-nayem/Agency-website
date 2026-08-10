@@ -13,6 +13,7 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.16.0",
     "@prisma/client": "^5.22.0",
     "autoprefixer": "^10.5.4",
     "bcryptjs": "^2.4.3",

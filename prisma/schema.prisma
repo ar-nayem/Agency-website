@@ -37,6 +37,7 @@ model User {
   transactions      Transaction[] @relation("AgentTransactions")
   createdTransactions Transaction[] @relation("TransactionCreatedBy")
   universityPortals UniversityPortal[]
+  offers            Offer[]
 }
 
 model Student {
@@ -343,6 +344,24 @@ model VisitorLog {
   @@index([userId])
   @@index([createdAt])
   @@index([path])
+}
+
+model Offer {
+  id          String    @id @default(uuid())
+  title       String
+  description String
+  imageUrl    String?
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+
+  @@index([isActive])
+  @@index([startDate])
 }
 
 model ActivityLog {

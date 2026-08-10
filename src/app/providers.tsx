@@ -6,6 +6,7 @@ import { SessionProvider } from 'next-auth/react'
 import { Toaster } from 'react-hot-toast'
 import { LanguageProvider } from '@/src/lib/i18n/LanguageContext'
 import { ThemeProvider } from '@/src/lib/theme/ThemeContext'
+import { ChatWidget } from '@/src/components/ChatWidget'
 
 function VisitorTracker() {
   const pathname = usePathname()
@@ -33,6 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <LanguageProvider>
           <VisitorTracker />
           {children}
+          <ChatWidget />
           <Toaster position="top-right" />
         </LanguageProvider>
       </ThemeProvider>

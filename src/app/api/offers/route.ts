@@ -1,0 +1,74 @@
+export const dynamic = 'force-dynamic'
+
+import { prisma } from '@/src/lib/prisma'
+import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { computeOfferStatus } from '@/src/lib/chatbot'
+import { NextRequest, NextResponse } from 'next/server'
+
+// GET is intentionally public (no session required) — the landing/login page
+// widget and the portal chatbot both need to read live offers without auth.
+// ?all=true additionally returns paused/expired offers, but only to a logged
+// in ADMIN/OWNER managing the list — never leaked to the public response.
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const wantsAll = searchParams.get('all') === 'true'
+
+    let includeAll = false
+    if (wantsAll) {
+      const user = await getSessionUser(req)
+      includeAll = !!user && isAdminRole(user.role)
+    }
+
+    const offers = await prisma.offer.findMany({
+      where: includeAll ? undefined : { isActive: true },
+      orderBy: { startDate: 'asc' },
+      select: {
+        id: true, title: true, description: true, imageUrl: true,
+        startDate: true, endDate: true, isActive: true, createdAt: true, updatedAt: true,
+        createdBy: { select: { name: true } },
+      },
+    })
+
+    const withStatus = offers
+      .map(o => ({ ...o, status: computeOfferStatus(o) }))
+      .filter(o => includeAll || o.status === 'RUNNING' || o.status === 'UPCOMING')
+
+    return NextResponse.json(withStatus)
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch offers' }, { status: 500 })
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const user = await getSessionUser(req)
+    if (!user || !isAdminRole(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const { title, description, imageUrl, startDate, endDate, isActive } = body
+
+    if (!title || !description || !startDate) {
+      return NextResponse.json({ error: 'title, description and startDate are required' }, { status: 400 })
+    }
+
+    const offer = await prisma.offer.create({
+      data: {
+        title,
+        description,
+        imageUrl: imageUrl || null,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        isActive: isActive ?? true,
+        createdById: user.id,
+      },
+    })
+
+    return NextResponse.json(offer, { status: 201 })
+  } catch (error) {
+    console.error('Offers POST error:', error)
+    return NextResponse.json({ error: 'Failed to create offer' }, { status: 500 })
+  }
+}
