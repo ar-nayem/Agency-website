@@ -29,6 +29,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data.canViewPortals = body.canViewPortals
     }
 
+    if (typeof body.receiveAlerts === 'boolean') {
+      if (user.role !== 'OWNER') {
+        return NextResponse.json({ error: 'Only the owner can manage alert email recipients' }, { status: 403 })
+      }
+      data.receiveAlerts = body.receiveAlerts
+    }
+
     if ('managedByAdminId' in body) {
       if (user.role !== 'OWNER') {
         return NextResponse.json({ error: 'Only the owner can assign agents to admins' }, { status: 403 })
@@ -63,6 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         createdAt: true,
         managedByAdminId: true,
         canViewPortals: true,
+        receiveAlerts: true,
       }
     })
     return NextResponse.json(updated)

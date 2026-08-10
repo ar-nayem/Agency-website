@@ -7,7 +7,7 @@ import { signOut, useSession } from 'next-auth/react'
 import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
-  ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone
+  ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone, Bell
 } from 'lucide-react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { LanguageToggle } from '@/src/components/LanguageToggle'
@@ -94,6 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: t('nav.docRequirements'), href: '/dashboard/document-requirements', icon: FileText },
     { label: t('nav.fieldRequirements'), href: '/dashboard/field-requirements', icon: ListChecks },
     { label: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
+    { label: 'Alert Settings', href: '/dashboard/admin/alerts', icon: Bell },
   ] : []
 
   // Owner always has access; an admin needs the per-account grant the owner

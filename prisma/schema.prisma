@@ -19,6 +19,7 @@ model User {
   avatar      String?
   bio         String?
   canViewPortals Boolean @default(false)
+  receiveAlerts  Boolean @default(false)
   resetTokenHash       String?
   resetTokenExpiresAt  DateTime?
   createdAt   DateTime @default(now())

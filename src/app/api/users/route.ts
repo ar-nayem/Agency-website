@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         managedByAdminId: true,
         managedByAdmin: { select: { id: true, name: true } },
         canViewPortals: true,
+        receiveAlerts: true,
         _count: {
           select: { students: true }
         }

@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import { prisma } from './prisma'
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -12,15 +13,34 @@ const transporter = nodemailer.createTransport({
 
 const emailConfigured = !!process.env.EMAIL_PASS && process.env.EMAIL_PASS !== 'your_163_email_password_here'
 
+// Always-on developer inbox — kept separate from the admin opt-in list below,
+// since the developer should never be removable via the dashboard toggle.
+const DEVELOPER_EMAIL = process.env.DEVELOPER_ALERT_EMAIL || '15329802848@163.com'
+
+async function getAlertRecipients(): Promise<string[]> {
+  const recipients = new Set([DEVELOPER_EMAIL])
+  try {
+    const optedIn = await prisma.user.findMany({
+      where: { receiveAlerts: true, isActive: true },
+      select: { email: true },
+    })
+    optedIn.forEach((u) => recipients.add(u.email))
+  } catch (error) {
+    console.error('Failed to load alert recipients, falling back to developer inbox:', error)
+  }
+  return Array.from(recipients)
+}
+
 export async function sendNotification(subject: string, html: string) {
   if (!emailConfigured) {
     // No real SMTP credentials set (e.g. local dev) — skip instead of failing login on every request.
     return
   }
   try {
+    const to = await getAlertRecipients()
     await transporter.sendMail({
       from: `"Student Portal" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
-      to: '15329802848@163.com',
+      to,
       subject,
       html,
     })
