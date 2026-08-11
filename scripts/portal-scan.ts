@@ -34,14 +34,14 @@ async function buildLocalRoster(): Promise<LocalRoster> {
 }
 
 async function scanOnePortal(
-  portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string; platform: string },
+  portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string; platform: string; useProxy: boolean },
   roster: LocalRoster
 ) {
   let students: PortalStudentRecord[]
   try {
     const baseUrl = new URL(portal.loginUrl).origin
     const password = decryptCredential(portal.passwordEnc)
-    students = await scanPortal(portal.platform, baseUrl, portal.username, password)
+    students = await scanPortal(portal.platform, baseUrl, portal.username, password, portal.useProxy)
   } catch (err: any) {
     await prisma.universityPortal.update({
       where: { id: portal.id },

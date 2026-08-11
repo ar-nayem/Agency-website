@@ -29,8 +29,8 @@ function updateJar(jar: CookieJar, res: Response) {
 
 interface PortalCrypto { key: Buffer; iv: Buffer }
 
-async function fetchPortalCrypto(baseUrl: string): Promise<PortalCrypto> {
-  const res = await fetch(`${baseUrl}/Script/Common.js`)
+async function fetchPortalCrypto(baseUrl: string, fetchImpl: typeof fetch): Promise<PortalCrypto> {
+  const res = await fetchImpl(`${baseUrl}/Script/Common.js`)
   const text = await res.text()
   const keyMatch = text.match(/_KEY\s*=\s*"([^"]+)"/)
   const ivMatch = text.match(/_IV\s*=\s*"([^"]+)"/)
@@ -95,18 +95,18 @@ export interface LoginResult {
   crypto: PortalCrypto
 }
 
-export async function login(baseUrl: string, username: string, password: string, maxAttempts = 3): Promise<LoginResult> {
+export async function login(baseUrl: string, username: string, password: string, fetchImpl: typeof fetch, maxAttempts = 3): Promise<LoginResult> {
   const jar: CookieJar = {}
-  const portalCrypto = await fetchPortalCrypto(baseUrl)
+  const portalCrypto = await fetchPortalCrypto(baseUrl, fetchImpl)
 
   // Establish session cookie.
-  const loginPageRes = await fetch(`${baseUrl}/StuApplication/Login.aspx`, { redirect: 'manual' })
+  const loginPageRes = await fetchImpl(`${baseUrl}/StuApplication/Login.aspx`, { redirect: 'manual' })
   updateJar(jar, loginPageRes)
 
   let lastMessage = ''
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const codeId = Date.now().toString()
-    const captchaRes = await fetch(
+    const captchaRes = await fetchImpl(
       `${baseUrl}/Resources/CheckCode/CheckCode.ashx?notips=1&codeId=${codeId}&codeIdold=undefined`,
       { headers: { Cookie: cookieHeader(jar) } }
     )
@@ -121,7 +121,7 @@ export async function login(baseUrl: string, username: string, password: string,
       codeId,
     })
 
-    const loginRes = await fetch(`${baseUrl}/ajax/StuApplication/StuLogin.ashx?Method=StudentLogin&notips=1`, {
+    const loginRes = await fetchImpl(`${baseUrl}/ajax/StuApplication/StuLogin.ashx?Method=StudentLogin&notips=1`, {
       method: 'POST',
       headers: {
         Cookie: cookieHeader(jar),
@@ -156,7 +156,8 @@ export type { PortalStudentRecord }
 export async function fetchAllStudents(
   baseUrl: string,
   jar: CookieJar,
-  portalCrypto: PortalCrypto
+  portalCrypto: PortalCrypto,
+  fetchImpl: typeof fetch
 ): Promise<PortalStudentRecord[]> {
   const pageSize = 50
   let page = 1
@@ -169,7 +170,7 @@ export async function fetchAllStudents(
       `&page=${page}&pagesize=${pageSize}&IsPayFees=&IsMaterials=&Season=&DegreeID=&CountryID=` +
       `&PName=&PassportName=&StuYear=&admitstatus=&StageUserType=5`
 
-    const res = await fetch(url, {
+    const res = await fetchImpl(url, {
       method: 'POST',
       headers: { Cookie: cookieHeader(jar) },
     })
@@ -201,11 +202,11 @@ export async function fetchAllStudents(
   return results
 }
 
-export async function scanPortal(baseUrl: string, username: string, password: string) {
-  const loginResult = await login(baseUrl, username, password)
+export async function scanPortal(baseUrl: string, username: string, password: string, fetchImpl: typeof fetch = fetch) {
+  const loginResult = await login(baseUrl, username, password, fetchImpl)
   if (!loginResult.success) {
     throw new Error(loginResult.message || 'Login failed')
   }
-  const students = await fetchAllStudents(baseUrl, loginResult.jar, loginResult.crypto)
+  const students = await fetchAllStudents(baseUrl, loginResult.jar, loginResult.crypto, fetchImpl)
   return students
 }

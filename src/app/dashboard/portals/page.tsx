@@ -48,7 +48,7 @@ export default function PortalsPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
-  const [formData, setFormData] = useState({ name: '', loginUrl: '', username: '', password: '', platform: 'AT0086' })
+  const [formData, setFormData] = useState({ name: '', loginUrl: '', username: '', password: '', platform: 'AT0086', useProxy: false })
   const [submitting, setSubmitting] = useState(false)
   const [scanningId, setScanningId] = useState<string | null>(null)
 
@@ -239,13 +239,13 @@ export default function PortalsPage() {
 
   function openAdd() {
     setEditing(null)
-    setFormData({ name: '', loginUrl: '', username: '', password: '', platform: 'AT0086' })
+    setFormData({ name: '', loginUrl: '', username: '', password: '', platform: 'AT0086', useProxy: false })
     setShowForm(true)
   }
 
   function openEdit(p: any) {
     setEditing(p)
-    setFormData({ name: p.name, loginUrl: p.loginUrl, username: p.username, password: '', platform: p.platform || 'AT0086' })
+    setFormData({ name: p.name, loginUrl: p.loginUrl, username: p.username, password: '', platform: p.platform || 'AT0086', useProxy: !!p.useProxy })
     setShowForm(true)
   }
 
@@ -255,7 +255,7 @@ export default function PortalsPage() {
     try {
       const url = editing ? `/api/portals/${editing.id}` : '/api/portals'
       const method = editing ? 'PATCH' : 'POST'
-      const body: any = { name: formData.name, loginUrl: formData.loginUrl, username: formData.username, platform: formData.platform }
+      const body: any = { name: formData.name, loginUrl: formData.loginUrl, username: formData.username, platform: formData.platform, useProxy: formData.useProxy }
       if (formData.password) body.password = formData.password
       const res = await fetch(url, {
         method,
@@ -725,6 +725,18 @@ export default function PortalsPage() {
                 <input required={!editing} type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={editing ? '••••••••' : ''} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground" />
                 <p className="text-[11px] text-muted-foreground mt-1">{t('portals.passwordHint')}</p>
               </div>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.useProxy}
+                  onChange={(e) => setFormData({ ...formData, useProxy: e.target.checked })}
+                  className="mt-0.5 w-4 h-4 rounded border-border accent-indigo-600"
+                />
+                <span>
+                  <span className="text-sm font-medium text-foreground block">Route scans through proxy</span>
+                  <span className="text-[11px] text-muted-foreground">Use if this portal blocks our server's IP directly (fetch failed, but the site is up). Scans will be relayed through a Cloudflare Worker instead.</span>
+                </span>
+              </label>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition">{t('portals.cancel')}</button>
                 <button type="submit" disabled={submitting} className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium shadow-sm shadow-indigo-500/20 disabled:opacity-60">{t('portals.save')}</button>

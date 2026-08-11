@@ -30,11 +30,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.password) data.passwordEnc = encryptCredential(body.password)
     if (body.isActive !== undefined) data.isActive = !!body.isActive
     if (body.platform !== undefined) data.platform = body.platform
+    if (body.useProxy !== undefined) data.useProxy = !!body.useProxy
 
     const portal = await prisma.universityPortal.update({
       where: { id },
       data,
-      select: { id: true, name: true, loginUrl: true, username: true, isActive: true, platform: true },
+      select: { id: true, name: true, loginUrl: true, username: true, isActive: true, platform: true, useProxy: true },
     })
 
     await logActivity(user.id, 'PORTAL_UPDATED', `Updated university portal: ${portal.name}`)

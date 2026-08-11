@@ -1,5 +1,6 @@
 import { scanPortal as scanAt0086 } from './at0086'
 import { scanPortal as scanIstudyedu } from './istudyedu'
+import { createFetch } from './proxyFetch'
 import type { PortalStudentRecord } from './types'
 
 export type { PortalStudentRecord }
@@ -11,13 +12,15 @@ export async function scanPortal(
   platform: string,
   baseUrl: string,
   username: string,
-  password: string
+  password: string,
+  useProxy = false
 ): Promise<PortalStudentRecord[]> {
+  const fetchImpl = createFetch(useProxy)
   switch (platform) {
     case 'ISTUDYEDU':
-      return scanIstudyedu(baseUrl, username, password)
+      return scanIstudyedu(baseUrl, username, password, fetchImpl)
     case 'AT0086':
     default:
-      return scanAt0086(baseUrl, username, password)
+      return scanAt0086(baseUrl, username, password, fetchImpl)
   }
 }

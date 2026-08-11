@@ -25,9 +25,9 @@ interface LoginResult {
   token: string
 }
 
-async function login(baseUrl: string, username: string, password: string): Promise<LoginResult> {
+async function login(baseUrl: string, username: string, password: string, fetchImpl: typeof fetch): Promise<LoginResult> {
   const apiBase = apiBaseFrom(baseUrl)
-  const res = await fetch(`${apiBase}login`, {
+  const res = await fetchImpl(`${apiBase}login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -42,14 +42,14 @@ async function login(baseUrl: string, username: string, password: string): Promi
   return { success: true, apiBase, token: json.data.token }
 }
 
-async function fetchAllStudents(apiBase: string, token: string): Promise<PortalStudentRecord[]> {
+async function fetchAllStudents(apiBase: string, token: string, fetchImpl: typeof fetch): Promise<PortalStudentRecord[]> {
   const limit = 100
   let page = 1
   let totalPages = 1
   const results: PortalStudentRecord[] = []
 
   do {
-    const res = await fetch(`${apiBase}applies`, {
+    const res = await fetchImpl(`${apiBase}applies`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -94,10 +94,10 @@ async function fetchAllStudents(apiBase: string, token: string): Promise<PortalS
   return results
 }
 
-export async function scanPortal(baseUrl: string, username: string, password: string): Promise<PortalStudentRecord[]> {
-  const loginResult = await login(baseUrl, username, password)
+export async function scanPortal(baseUrl: string, username: string, password: string, fetchImpl: typeof fetch = fetch): Promise<PortalStudentRecord[]> {
+  const loginResult = await login(baseUrl, username, password, fetchImpl)
   if (!loginResult.success) {
     throw new Error(loginResult.message || 'Login failed')
   }
-  return fetchAllStudents(loginResult.apiBase, loginResult.token)
+  return fetchAllStudents(loginResult.apiBase, loginResult.token, fetchImpl)
 }

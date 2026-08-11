@@ -266,6 +266,7 @@ model UniversityPortal {
   passwordEnc    String
   platform       String    @default("AT0086")
   isActive       Boolean   @default(true)
+  useProxy       Boolean   @default(false)
   lastScanAt     DateTime?
   lastScanStatus String?
   lastScanError  String?

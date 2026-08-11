@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const portals = await prisma.universityPortal.findMany({
       select: {
         id: true, name: true, isActive: true,
-        loginUrl: owner, username: owner, platform: owner,
+        loginUrl: owner, username: owner, platform: owner, useProxy: owner,
         lastScanAt: true, lastScanStatus: true, lastScanError: true, lastScanCount: true,
         createdAt: true, createdBy: { select: { name: true } },
       },
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()
-    const { name, loginUrl, username, password, platform } = body
+    const { name, loginUrl, username, password, platform, useProxy } = body
     if (!name || !loginUrl || !username || !password) {
       return NextResponse.json({ error: 'name, loginUrl, username, password are required' }, { status: 400 })
     }
@@ -55,9 +55,10 @@ export async function POST(req: NextRequest) {
         name, loginUrl, username,
         passwordEnc: encryptCredential(password),
         platform: platform || undefined,
+        useProxy: typeof useProxy === 'boolean' ? useProxy : undefined,
         createdById: user.id,
       },
-      select: { id: true, name: true, loginUrl: true, username: true, isActive: true, platform: true, createdAt: true },
+      select: { id: true, name: true, loginUrl: true, username: true, isActive: true, platform: true, useProxy: true, createdAt: true },
     })
 
     await logActivity(user.id, 'PORTAL_CREATED', `Added university portal: ${portal.name}`)
