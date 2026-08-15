@@ -24,6 +24,7 @@ export default function FinancePage() {
 
   const [transactions, setTransactions] = useState<any[]>([])
   const [students, setStudents] = useState<any[]>([])
+  const [allMyTransactions, setAllMyTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
@@ -47,6 +48,14 @@ export default function FinancePage() {
     fetch('/api/students', { credentials: 'include' })
       .then((r) => r.json())
       .then((data) => setStudents(Array.isArray(data) ? data : []))
+      .catch(() => {})
+
+    // Unfiltered (no date/search/type params) so Total Fee/Costing/Due below
+    // always reflect the real all-time balance, not whatever date range or
+    // search happens to be active in the transactions table filters.
+    fetch('/api/transactions', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => setAllMyTransactions(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [])
 
@@ -113,6 +122,32 @@ export default function FinancePage() {
     }
     return { charged, spent, profit: charged - spent, outstanding, refunded }
   }, [transactions])
+
+  const feeSummary = useMemo(() => {
+    const myId = session?.user?.id
+    // Kept to students assigned to me specifically (not every org student,
+    // even for owner/admin) so this stays consistent with "charged" below —
+    // that's derived from my own logged transactions only, matching this
+    // page's personal-only scope everywhere else.
+    const relevantStudents = students.filter((s) => s.agentId === myId)
+
+    const chargedByStudent: Record<string, number> = {}
+    for (const tx of allMyTransactions) {
+      if (tx.type === 'INCOME' && tx.status === 'COMPLETED') {
+        chargedByStudent[tx.studentId] = (chargedByStudent[tx.studentId] || 0) + tx.amount
+      }
+    }
+    let totalFee = 0, totalCosting = 0, totalDue = 0, hasFeeData = false
+    for (const s of relevantStudents) {
+      if (typeof s.totalFee === 'number') {
+        hasFeeData = true
+        totalFee += s.totalFee
+        totalDue += Math.max(s.totalFee - (chargedByStudent[s.id] || 0), 0)
+      }
+      if (typeof s.myCosting === 'number') totalCosting += s.myCosting
+    }
+    return { totalFee, totalCosting, totalDue, margin: totalFee - totalCosting, hasFeeData }
+  }, [students, allMyTransactions, session])
 
   const categoryBreakdown = useMemo(() => {
     const map: Record<string, { income: number; expense: number }> = {}
@@ -210,6 +245,31 @@ export default function FinancePage() {
           </div>
         </div>
       </div>
+
+      {feeSummary.hasFeeData && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('finance.totalFee')}</p>
+            <p className="text-2xl font-bold text-foreground mt-1.5">{formatMoney(feeSummary.totalFee)}</p>
+          </div>
+          <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('finance.myCosting')}</p>
+            <p className="text-2xl font-bold text-foreground mt-1.5">{formatMoney(feeSummary.totalCosting)}</p>
+          </div>
+          <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('finance.myMargin')}</p>
+            <p className={`text-2xl font-bold mt-1.5 ${feeSummary.margin >= 0 ? 'text-foreground' : 'text-rose-600'}`}>{formatMoney(feeSummary.margin)}</p>
+          </div>
+          <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('finance.amountDue')}</p>
+            {feeSummary.totalDue <= 0 ? (
+              <p className="text-xl font-bold text-emerald-600 mt-1.5">{t('finance.fullyPaid')}</p>
+            ) : (
+              <p className="text-2xl font-bold text-rose-600 mt-1.5">{formatMoney(feeSummary.totalDue)}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-5 flex flex-wrap gap-3 items-end">
