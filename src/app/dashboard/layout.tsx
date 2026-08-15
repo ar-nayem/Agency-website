@@ -33,8 +33,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // with no org context of their own.
   const isSuperDeveloper = role === 'SUPER_DEVELOPER'
 
-  const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
-  const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
+  // Neutral until the real org's branding loads — never another org's name,
+  // even for the split second before the client-side fetch below resolves.
+  const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Student Portal', logo: null })
+  const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Student Portal', logo: null })
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
   const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -74,7 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(r => r.json())
       .then(data => {
         if (data) {
-          setOwnerOrg({ name: data.name || 'Chengdu Dream Fly Edu', logo: data.logo || null })
+          setOwnerOrg({ name: data.name || 'Student Portal', logo: data.logo || null })
         }
       })
       .catch(() => {})

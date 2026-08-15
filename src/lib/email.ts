@@ -68,7 +68,10 @@ export async function sendMail(to: string, subject: string, html: string) {
   if (!emailConfigured) return
   try {
     await transporter.sendMail({
-      from: `"Chengdu Dream Fly Edu" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
+      // All orgs currently send through this one shared mailbox (no
+      // per-org SMTP yet), so the display name has to stay neutral rather
+      // than naming any one tenant.
+      from: `"Student Portal" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
       to,
       subject,
       html,

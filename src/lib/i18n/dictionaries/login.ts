@@ -1,5 +1,5 @@
 export const en = {
-  title: 'Chengdu Dream Fly Edu',
+  title: 'Student Portal',
   subtitle: 'Student Application Management',
   emailOrUsername: 'Email or Username',
   emailPlaceholder: 'Enter your email or username',
@@ -11,7 +11,7 @@ export const en = {
   invalidCredentials: 'Invalid email/username or password',
   somethingWrong: 'Something went wrong',
   contactSupport: 'Contact Support',
-  footer: 'Chengdu Dream Fly Edu Student Portal v1.0',
+  footer: 'Student Portal v1.0',
   forgotPassword: 'Forgot password?',
   forgotPasswordTitle: 'Reset your password',
   forgotPasswordSubtitle: 'Enter your email and we\'ll send you a verification code',
@@ -43,7 +43,7 @@ export const en = {
 }
 
 export const zh = {
-  title: '成都追梦飞教育',
+  title: '学生门户',
   subtitle: '学生申请管理系统',
   emailOrUsername: '邮箱或用户名',
   emailPlaceholder: '请输入邮箱或用户名',
@@ -55,7 +55,7 @@ export const zh = {
   invalidCredentials: '邮箱/用户名或密码错误',
   somethingWrong: '出错了，请重试',
   contactSupport: '联系客服',
-  footer: '成都追梦飞教育学生门户 v1.0',
+  footer: '学生门户 v1.0',
   forgotPassword: '忘记密码？',
   forgotPasswordTitle: '重置密码',
   forgotPasswordSubtitle: '输入您的邮箱，我们将发送验证码',
