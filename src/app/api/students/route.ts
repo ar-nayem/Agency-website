@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotification, studentSubmissionTemplate } from '@/src/lib/email'
 import { logActivity } from '@/src/lib/activity'
@@ -9,7 +10,7 @@ import { createStudentFromData } from '@/src/lib/createStudent'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     const agentId = searchParams.get('agentId')
     const search = searchParams.get('search')
 
-    const where: any = {}
+    const where: any = { ...orgWhere(user) }
 
     if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
       where.agentId = user.id
@@ -66,21 +67,26 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       console.log('POST /api/students: No user from session')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const orgId = requireOrgId(user)
+    if (!orgId) {
+      return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
+    }
+
     console.log('POST /api/students: user=', user)
 
     const body = await req.json()
-    const { 
-      educationHistory, 
-      workExperience, 
-      familyMembers, 
+    const {
+      educationHistory,
+      workExperience,
+      familyMembers,
       financialSponsors,
-      ...studentData 
+      ...studentData
     } = body
 
     // Verify user exists (handles db reset cases)
@@ -92,13 +98,14 @@ export async function POST(req: NextRequest) {
 
     console.log('POST /api/students: creating student, agentId=', user.id)
 
-    const student = await createStudentFromData(user.id, studentData, {
+    const student = await createStudentFromData(user.id, orgId, studentData, {
       educationHistory, workExperience, familyMembers, financialSponsors,
     })
 
     await sendNotification(
       'New Student Submission',
-      studentSubmissionTemplate(student.agent.name, student.fullName)
+      studentSubmissionTemplate(student.agent.name, student.fullName),
+      orgId
     )
     await logActivity(user.id, 'STUDENT_CREATED', `${student.fullName} (${student.serialNumber})`)
 
@@ -111,7 +118,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -124,7 +131,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'No students selected' }, { status: 400 })
     }
 
-    const where: any = { id: { in: studentIds } }
+    const where: any = { id: { in: studentIds }, ...orgWhere(user) }
     if (user.role === 'ADMIN') {
       const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
       if (managed.length > 0) {

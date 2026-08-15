@@ -33,8 +33,28 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
+    // SUPER_DEVELOPER platform console — the one place that must NOT pass
+    // through the OWNER-equivalence below, since it's the operator's own
+    // cross-org area, not something impersonation should ever grant.
+    const superDeveloperOnlyPaths = ['/dashboard/platform', '/api/platform']
+    if (superDeveloperOnlyPaths.some(p => pathname.startsWith(p)) && token.role !== 'SUPER_DEVELOPER') {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+
+    // Middleware runs at the edge on the raw JWT only — it can't call
+    // getEffectiveUser (Node runtime, needs Prisma) so it never sees the
+    // impersonation-derived 'OWNER' remap. SUPER_DEVELOPER is allowed
+    // through every OWNER gate explicitly here instead. Which *org's* data
+    // a request actually sees is a separate concern, resolved per-route by
+    // getEffectiveUser — middleware only decides whether the role tier may
+    // reach the URL shape at all.
+    const isOwnerTier = (role: string) => role === 'OWNER' || role === 'SUPER_DEVELOPER'
+
     // Admin dashboard - ADMIN and OWNER
-    if (pathname.startsWith('/dashboard/admin') && token.role !== 'ADMIN' && token.role !== 'OWNER') {
+    if (pathname.startsWith('/dashboard/admin') && token.role !== 'ADMIN' && !isOwnerTier(token.role as string)) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
@@ -48,14 +68,14 @@ export async function middleware(request: NextRequest) {
     // The routes themselves enforce the correct read permissions per role.
     const ownerOnlyApiPaths = ['/api/document-requirements', '/api/field-requirements', '/api/users']
 
-    if (ownerOnlyPaths.some(p => pathname.startsWith(p)) && token.role !== 'OWNER') {
+    if (ownerOnlyPaths.some(p => pathname.startsWith(p)) && !isOwnerTier(token.role as string)) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
     if (
       ownerOnlyApiPaths.some(p => pathname.startsWith(p)) &&
       request.method !== 'GET' &&
-      token.role !== 'OWNER'
+      !isOwnerTier(token.role as string)
     ) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

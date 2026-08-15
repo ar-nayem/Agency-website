@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Plus, Trash2, UserCheck, UserX, Loader2,
-  Mail, User, Key, Search, Copy, Check, Dices, X
+  Mail, User, Key, Search, Copy, Check, Dices, X, Link2, RefreshCw
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -30,6 +30,9 @@ export default function AgentsPage() {
   const [copied, setCopied] = useState(false)
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [portalAccessId, setPortalAccessId] = useState<string | null>(null)
+  const [inviteCode, setInviteCode] = useState<string | null>(null)
+  const [regenerating, setRegenerating] = useState(false)
+  const [inviteCopied, setInviteCopied] = useState(false)
 
   useEffect(() => {
     if (session?.user?.role !== 'OWNER') {
@@ -37,7 +40,42 @@ export default function AgentsPage() {
       return
     }
     fetchAgents()
+    fetchInvite()
   }, [session])
+
+  async function fetchInvite() {
+    try {
+      const res = await fetch('/api/organization/invite', { credentials: 'include' })
+      if (res.ok) setInviteCode((await res.json()).code)
+    } catch {}
+  }
+
+  async function regenerateInvite() {
+    if (!confirm(t('agentsPage.regenerateInviteConfirm'))) return
+    setRegenerating(true)
+    try {
+      const res = await fetch('/api/organization/invite', { method: 'POST', credentials: 'include' })
+      if (res.ok) {
+        setInviteCode((await res.json()).code)
+        toast.success(t('agentsPage.inviteRegenerated'))
+      } else {
+        toast.error(t('agentsPage.updateFailed'))
+      }
+    } catch {
+      toast.error(t('agentsPage.updateFailed'))
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  function copyInviteLink() {
+    if (!inviteCode) return
+    const url = `${window.location.origin}/register?code=${inviteCode}`
+    navigator.clipboard.writeText(url).then(() => {
+      setInviteCopied(true)
+      setTimeout(() => setInviteCopied(false), 2000)
+    })
+  }
 
   async function fetchAgents() {
     try {
@@ -232,6 +270,38 @@ export default function AgentsPage() {
           <Plus className="w-4 h-4" />
           {t('agentsPage.addAccount')}
         </button>
+      </div>
+
+      <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Link2 className="w-4 h-4 text-indigo-600" />
+          <h3 className="text-sm font-semibold text-foreground">{t('agentsPage.inviteLinkTitle')}</h3>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">{t('agentsPage.inviteLinkHint')}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            readOnly
+            value={inviteCode ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?code=${inviteCode}` : ''}
+            placeholder={t('common.loading')}
+            className="flex-1 min-w-[240px] px-3 py-2 border border-border rounded-xl bg-muted text-sm text-foreground"
+          />
+          <button
+            onClick={copyInviteLink}
+            disabled={!inviteCode}
+            className="px-3 py-2 border border-border rounded-xl text-sm font-medium hover:bg-muted transition flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {inviteCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+            {inviteCopied ? t('agentsPage.copied') : t('agentsPage.copy')}
+          </button>
+          <button
+            onClick={regenerateInvite}
+            disabled={regenerating || !inviteCode}
+            className="px-3 py-2 border border-border rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {t('agentsPage.regenerate')}
+          </button>
+        </div>
       </div>
 
       {showForm && (

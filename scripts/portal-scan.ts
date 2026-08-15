@@ -22,8 +22,10 @@ interface LocalRoster {
   byName: Map<string, string>
 }
 
-async function buildLocalRoster(): Promise<LocalRoster> {
-  const students = await prisma.student.findMany({ select: { id: true, passportNo: true, fullName: true } })
+// Scoped per-org — a portal scan matching against every org's students would
+// let one org's portal data get linked to another org's student records.
+async function buildLocalRoster(organizationId: string): Promise<LocalRoster> {
+  const students = await prisma.student.findMany({ where: { organizationId }, select: { id: true, passportNo: true, fullName: true } })
   const byPassport = new Map<string, string>()
   const byName = new Map<string, string>()
   for (const s of students) {
@@ -34,7 +36,7 @@ async function buildLocalRoster(): Promise<LocalRoster> {
 }
 
 async function scanOnePortal(
-  portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string; platform: string; useProxy: boolean },
+  portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string; platform: string; useProxy: boolean; organizationId: string | null },
   roster: LocalRoster
 ) {
   let students: PortalStudentRecord[]
@@ -130,83 +132,110 @@ export async function runScan(onlyPortalId?: string) {
     where: onlyPortalId ? { id: onlyPortalId } : { isActive: true },
   })
 
-  let html = ''
+  // Grouped by org so each org's roster-matching and notification stays
+  // within its own data, even in the (currently unreachable via any route —
+  // the manual-scan API always passes a single portal id) all-active-portals
+  // branch below.
   const errors: { portal: string; error: string }[] = []
-  const roster = await buildLocalRoster()
+  const htmlByOrg = new Map<string, string>()
+  const rosterByOrg = new Map<string, LocalRoster>()
 
   for (const portal of portals) {
+    const orgId = portal.organizationId
+    if (!orgId) continue // orphaned portal with no org — shouldn't happen post-migration, skip defensively
+    let roster = rosterByOrg.get(orgId)
+    if (!roster) {
+      roster = await buildLocalRoster(orgId)
+      rosterByOrg.set(orgId, roster)
+    }
     const { changes, error } = await scanOnePortal(portal, roster)
     if (error) errors.push({ portal: portal.name, error })
-    if (changes.length) html += statusChangeHtml(portal.name, portal.id, changes)
+    if (changes.length) {
+      htmlByOrg.set(orgId, (htmlByOrg.get(orgId) || '') + statusChangeHtml(portal.name, portal.id, changes))
+    }
   }
 
-  if (errors.length) {
-    html += `<h3>Scan Errors</h3><ul>${errors.map((e) => `<li>${e.portal}: ${e.error}</li>`).join('')}</ul>`
+  for (const orgId of Array.from(htmlByOrg.keys())) {
+    await sendNotification('University Portal Status Update', `<h2>Portal Scan Results</h2>${htmlByOrg.get(orgId)}`, orgId)
   }
 
-  if (html) {
-    await sendNotification('University Portal Status Update', `<h2>Portal Scan Results</h2>${html}`)
+  const scannedOrgIds = Array.from(new Set(portals.map((p) => p.organizationId).filter((id): id is string => !!id)))
+  for (const orgId of scannedOrgIds) {
+    await prisma.scanSettings.upsert({
+      where: { organizationId: orgId },
+      create: { organizationId: orgId, lastRunAt: new Date() },
+      update: { lastRunAt: new Date() },
+    })
   }
-
-  await prisma.scanSettings.upsert({
-    where: { id: 'global' },
-    create: { id: 'global', lastRunAt: new Date() },
-    update: { lastRunAt: new Date() },
-  })
 
   return { portalsScanned: portals.length, errors }
 }
 
-// The cron entry point. Portals are never scanned as one batch — each tick
-// scans at most ONE portal (the one that's been waiting longest), and won't
-// even do that unless the configured stagger gap has passed since the last
-// individual portal scan. Intended to be invoked frequently (every minute or
-// few) so it can act as soon as both the per-portal interval and the stagger
-// gap allow, without needing its own precise internal timer.
+// The cron entry point. Each org is independent: every tick, every ACTIVE
+// org gets a chance to scan at most ONE of its own portals (the one that's
+// been waiting longest), gated by that org's own stagger/interval settings —
+// one org's scan volume or a slow/broken portal never blocks another org's
+// turn. Within an org this preserves the original single-portal-per-tick
+// rate-limiting design (intended to be invoked frequently, every minute or
+// few, so it can act as soon as both the interval and stagger gap allow).
 export async function runScheduledTick() {
-  const settings = await prisma.scanSettings.upsert({
-    where: { id: 'global' },
-    create: { id: 'global' },
-    update: {},
-  })
-  if (!settings.enabled) return { skipped: 'disabled' as const }
+  const orgs = await prisma.organization.findMany({ where: { status: 'ACTIVE' }, select: { id: true } })
+  const results: Array<{ orgId: string; skipped?: string; scanned?: string; changesCount?: number; error?: string | null }> = []
 
-  const now = Date.now()
-  const staggerMs = (settings.staggerMinutes || 5) * 60 * 1000
-  if (settings.lastPortalScanAt && now - settings.lastPortalScanAt.getTime() < staggerMs) {
-    return { skipped: 'stagger-wait' as const }
+  for (const org of orgs) {
+    const settings = await prisma.scanSettings.upsert({
+      where: { organizationId: org.id },
+      create: { organizationId: org.id },
+      update: {},
+    })
+    if (!settings.enabled) {
+      results.push({ orgId: org.id, skipped: 'disabled' })
+      continue
+    }
+
+    const now = Date.now()
+    const staggerMs = (settings.staggerMinutes || 5) * 60 * 1000
+    if (settings.lastPortalScanAt && now - settings.lastPortalScanAt.getTime() < staggerMs) {
+      results.push({ orgId: org.id, skipped: 'stagger-wait' })
+      continue
+    }
+
+    const portals = await prisma.universityPortal.findMany({ where: { isActive: true, organizationId: org.id } })
+    const intervalMs = settings.intervalHours * 3600 * 1000
+    const due = portals.filter((p) => !p.lastScanAt || now - p.lastScanAt.getTime() >= intervalMs)
+    if (due.length === 0) {
+      results.push({ orgId: org.id, skipped: 'none-due' })
+      continue
+    }
+
+    // Oldest-scanned (or never-scanned) portal goes first, so the rotation is fair.
+    due.sort((a, b) => (a.lastScanAt?.getTime() || 0) - (b.lastScanAt?.getTime() || 0))
+    const portal = due[0]
+    // Captured before scanOnePortal overwrites lastScanStatus/lastScanError —
+    // used below to tell a brand-new failure apart from the same portal
+    // failing the same way it already failed last tick.
+    const previousStatus = portal.lastScanStatus
+    const previousError = portal.lastScanError
+
+    const roster = await buildLocalRoster(org.id)
+    const { changes, error } = await scanOnePortal(portal, roster)
+
+    await prisma.scanSettings.update({
+      where: { organizationId: org.id },
+      data: { lastPortalScanAt: new Date(), lastRunAt: new Date() },
+    })
+
+    const isNewFailure = error && (previousStatus !== 'ERROR' || previousError !== error)
+    if (isNewFailure) {
+      await sendNotification('University Portal Scan Error', `<h2>${portal.name}</h2><p>${error}</p>`, org.id)
+    } else if (changes.length) {
+      await sendNotification('University Portal Status Update', `<h2>Portal Scan Results</h2>${statusChangeHtml(portal.name, portal.id, changes)}`, org.id)
+    }
+
+    results.push({ orgId: org.id, scanned: portal.name, changesCount: changes.length, error })
   }
 
-  const portals = await prisma.universityPortal.findMany({ where: { isActive: true } })
-  const intervalMs = settings.intervalHours * 3600 * 1000
-  const due = portals.filter((p) => !p.lastScanAt || now - p.lastScanAt.getTime() >= intervalMs)
-  if (due.length === 0) return { skipped: 'none-due' as const }
-
-  // Oldest-scanned (or never-scanned) portal goes first, so the rotation is fair.
-  due.sort((a, b) => (a.lastScanAt?.getTime() || 0) - (b.lastScanAt?.getTime() || 0))
-  const portal = due[0]
-  // Captured before scanOnePortal overwrites lastScanStatus/lastScanError —
-  // used below to tell a brand-new failure apart from the same portal
-  // failing the same way it already failed last tick.
-  const previousStatus = portal.lastScanStatus
-  const previousError = portal.lastScanError
-
-  const roster = await buildLocalRoster()
-  const { changes, error } = await scanOnePortal(portal, roster)
-
-  await prisma.scanSettings.update({
-    where: { id: 'global' },
-    data: { lastPortalScanAt: new Date(), lastRunAt: new Date() },
-  })
-
-  const isNewFailure = error && (previousStatus !== 'ERROR' || previousError !== error)
-  if (isNewFailure) {
-    await sendNotification('University Portal Scan Error', `<h2>${portal.name}</h2><p>${error}</p>`)
-  } else if (changes.length) {
-    await sendNotification('University Portal Status Update', `<h2>Portal Scan Results</h2>${statusChangeHtml(portal.name, portal.id, changes)}`)
-  }
-
-  return { scanned: portal.name, changesCount: changes.length, error }
+  return results
 }
 
 if (require.main === module) {

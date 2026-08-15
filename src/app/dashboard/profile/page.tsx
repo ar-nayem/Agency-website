@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import {
   ArrowLeft, Camera, Building2, User, Mail, Phone,
-  MessageCircle, Globe, MapPin, Save, Loader2, Upload, ImageIcon, Lock
+  MessageCircle, Globe, MapPin, Save, Loader2, Upload, ImageIcon, Lock, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -52,6 +52,14 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
   const isOwner = profile?.role === 'OWNER'
+
+  const [newEmail, setNewEmail] = useState('')
+  const [emailChangePassword, setEmailChangePassword] = useState('')
+  const [emailCode, setEmailCode] = useState('')
+  const [emailStep, setEmailStep] = useState<'idle' | 'code-sent'>('idle')
+  const [pendingEmailShown, setPendingEmailShown] = useState('')
+  const [requestingEmailChange, setRequestingEmailChange] = useState(false)
+  const [confirmingEmailChange, setConfirmingEmailChange] = useState(false)
 
   useEffect(() => {
     fetchProfile()
@@ -169,6 +177,71 @@ export default function ProfilePage() {
     } finally {
       setChangingPassword(false)
     }
+  }
+
+  async function requestEmailChange() {
+    if (!newEmail || !emailChangePassword) {
+      toast.error(t('settings.fillEmailAndPassword'))
+      return
+    }
+    setRequestingEmailChange(true)
+    try {
+      const res = await fetch('/api/profile/email/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ newEmail, currentPassword: emailChangePassword })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(t('settings.emailCodeSentToast'))
+        setPendingEmailShown(newEmail)
+        setEmailStep('code-sent')
+      } else {
+        toast.error(data.error || t('settings.failedToSave'))
+      }
+    } catch {
+      toast.error(t('settings.failedToSave'))
+    } finally {
+      setRequestingEmailChange(false)
+    }
+  }
+
+  async function confirmEmailChange() {
+    if (!emailCode) return
+    setConfirmingEmailChange(true)
+    try {
+      const res = await fetch('/api/profile/email/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ code: emailCode })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(t('settings.emailChangedToast'))
+        if (profile) setProfile({ ...profile, email: data.email })
+        setEmailStep('idle')
+        setNewEmail('')
+        setEmailChangePassword('')
+        setEmailCode('')
+        setPendingEmailShown('')
+      } else {
+        toast.error(data.error || t('settings.failedToSave'))
+      }
+    } catch {
+      toast.error(t('settings.failedToSave'))
+    } finally {
+      setConfirmingEmailChange(false)
+    }
+  }
+
+  function cancelEmailChange() {
+    setEmailStep('idle')
+    setNewEmail('')
+    setEmailChangePassword('')
+    setEmailCode('')
+    setPendingEmailShown('')
   }
 
   function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -370,6 +443,88 @@ export default function ProfilePage() {
               {t('settings.changePasswordBtn')}
             </button>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'profile' && profile && (
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6 space-y-6 mt-6">
+          <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-muted-foreground" />
+            <h3 className="font-bold text-foreground">{t('settings.changeEmailTitle')}</h3>
+          </div>
+          <p className="text-sm text-muted-foreground -mt-4">{t('settings.changeEmailDesc')}</p>
+
+          {emailStep === 'idle' ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>{t('settings.newEmailLabel')}</label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={e => setNewEmail(e.target.value)}
+                    className={inputClass}
+                    autoComplete="email"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>{t('settings.currentPasswordForEmailLabel')}</label>
+                  <input
+                    type="password"
+                    value={emailChangePassword}
+                    onChange={e => setEmailChangePassword(e.target.value)}
+                    className={inputClass}
+                    autoComplete="current-password"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end pt-4 border-t border-border">
+                <button
+                  onClick={requestEmailChange}
+                  disabled={requestingEmailChange}
+                  className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm"
+                >
+                  {requestingEmailChange && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <Mail className="w-4 h-4" />
+                  {t('settings.sendCodeBtn')}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-foreground">
+                {t('settings.verificationCodeSentTo').replace('{email}', pendingEmailShown)}
+              </p>
+              <div className="max-w-xs">
+                <label className={labelClass}>{t('settings.verificationCodeLabel')}</label>
+                <input
+                  value={emailCode}
+                  onChange={e => setEmailCode(e.target.value)}
+                  className={inputClass}
+                  inputMode="numeric"
+                  maxLength={6}
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4 border-t border-border">
+                <button
+                  onClick={cancelEmailChange}
+                  className="px-4 py-2.5 border border-border rounded-xl hover:bg-muted transition flex items-center gap-2 font-medium text-sm"
+                >
+                  <X className="w-4 h-4" />
+                  {t('settings.cancelBtn')}
+                </button>
+                <button
+                  onClick={confirmEmailChange}
+                  disabled={confirmingEmailChange || !emailCode}
+                  className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm"
+                >
+                  {confirmingEmailChange && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {t('settings.confirmEmailBtn')}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

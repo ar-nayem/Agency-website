@@ -2,18 +2,19 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
 import { hash } from 'bcryptjs'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || (user.role !== 'ADMIN' && user.role !== 'OWNER')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const where: any = { role: { not: 'DELETED' } }
+    const where: any = { role: { not: 'DELETED' }, ...orgWhere(user) }
     if (user.role === 'ADMIN') {
       const managedCount = await prisma.user.count({ where: { managedByAdminId: user.id } })
       // Once the owner has assigned at least one agent to this admin, narrow their
@@ -48,9 +49,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const orgId = requireOrgId(user)
+    if (!orgId) {
+      return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
     }
 
     const body = await req.json()
@@ -68,7 +74,8 @@ export async function POST(req: NextRequest) {
         email,
         password: hashed,
         role: role || 'AGENT',
-        isActive: true
+        isActive: true,
+        organizationId: orgId
       },
       select: {
         id: true,
@@ -80,19 +87,22 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // Send welcome message from owner if configured
+    // Send welcome message from this org's own owner if configured — scoped
+    // to the creating user's org, not a global "the owner" lookup, so a new
+    // hire at org B never gets a welcome message from org A's owner.
     try {
       const ownerOrg = await prisma.organizationProfile.findFirst({
-        where: { user: { role: 'OWNER' } },
+        where: { organizationId: orgId },
       })
       if (ownerOrg?.welcomeMessage) {
-        const owner = await prisma.user.findFirst({ where: { role: 'OWNER' } })
+        const owner = await prisma.user.findFirst({ where: { role: 'OWNER', organizationId: orgId } })
         if (owner) {
           await prisma.message.create({
             data: {
               content: ownerOrg.welcomeMessage,
               senderId: owner.id,
               receiverId: newUser.id,
+              organizationId: orgId,
             }
           })
         }

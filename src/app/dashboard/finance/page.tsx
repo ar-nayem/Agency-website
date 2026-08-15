@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import {
   Wallet, TrendingUp, TrendingDown, Clock3, Plus, Download,
-  Search, Trash2, Eye, User, Building2
+  Search, Trash2, Eye, User, Building2, Receipt
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -451,6 +451,11 @@ export default function FinancePage() {
                         <Link href={`/dashboard/students/${tx.studentId}/finance`} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">
                           <Eye className="w-4 h-4" />
                         </Link>
+                        {tx.type === 'INCOME' && (
+                          <Link href={`/dashboard/students/${tx.studentId}/finance/receipt/${tx.id}`} target="_blank" className="text-slate-500 hover:text-slate-700 p-1.5 rounded-lg hover:bg-muted transition-colors inline-flex" title={t('finance.receiptTitle')}>
+                            <Receipt className="w-4 h-4" />
+                          </Link>
+                        )}
                         <button onClick={() => deleteTransaction(tx.id)} className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors inline-flex">
                           <Trash2 className="w-4 h-4" />
                         </button>

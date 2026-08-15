@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { encryptCredential } from '@/src/lib/credentialCrypto'
 import { logActivity } from '@/src/lib/activity'
@@ -12,12 +13,12 @@ function isOwner(role: string | undefined) {
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id } = await params
     const existing = await prisma.universityPortal.findUnique({ where: { id } })
-    if (!existing) return NextResponse.json({ error: 'Portal not found' }, { status: 404 })
+    if (!existing || !isSameOrg(user, existing)) return NextResponse.json({ error: 'Portal not found' }, { status: 404 })
 
     const body = await req.json()
     const data: any = {}
@@ -48,12 +49,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id } = await params
     const existing = await prisma.universityPortal.findUnique({ where: { id } })
-    if (!existing) return NextResponse.json({ error: 'Portal not found' }, { status: 404 })
+    if (!existing || !isSameOrg(user, existing)) return NextResponse.json({ error: 'Portal not found' }, { status: 404 })
 
     await prisma.universityPortal.delete({ where: { id } })
     await logActivity(user.id, 'PORTAL_DELETED', `Removed university portal: ${existing.name}`)

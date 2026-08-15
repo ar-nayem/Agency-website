@@ -1,22 +1,23 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Developer (OWNER) and ADMIN can message anyone.
-    // AGENT can message any ADMIN freely, but can only message the developer/owner
-    // if that owner has messaged them first.
+    // Developer (OWNER) and ADMIN can message anyone in their own org.
+    // AGENT can message any ADMIN in their org freely, but can only message
+    // their own org's owner if that owner has messaged them first.
     if (user.role !== 'AGENT') {
       const agents = await prisma.user.findMany({
-        where: { id: { not: user.id }, role: { not: 'DELETED' } },
+        where: { id: { not: user.id }, role: { not: 'DELETED' }, ...orgWhere(user) },
         select: { id: true, name: true, email: true, role: true, isActive: true },
         orderBy: { name: 'asc' },
       })
@@ -24,13 +25,13 @@ export async function GET(req: NextRequest) {
     }
 
     const admins = await prisma.user.findMany({
-      where: { role: 'ADMIN' },
+      where: { role: 'ADMIN', ...orgWhere(user) },
       select: { id: true, name: true, email: true, role: true, isActive: true },
       orderBy: { name: 'asc' },
     })
 
     const owners = await prisma.user.findMany({
-      where: { role: 'OWNER' },
+      where: { role: 'OWNER', ...orgWhere(user) },
       select: { id: true, name: true, email: true, role: true, isActive: true },
     })
     const reachableOwners = []

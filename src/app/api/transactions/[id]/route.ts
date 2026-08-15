@@ -1,19 +1,47 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
 import { TRANSACTION_CATEGORIES, PAYMENT_METHODS, TRANSACTION_STATUSES } from '@/src/lib/money'
 
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await getEffectiveUser(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { id } = await params
+    const transaction = await prisma.transaction.findUnique({
+      where: { id },
+      include: {
+        student: { select: { id: true, fullName: true, serialNumber: true, mainEmail: true, passportNo: true } },
+        agent: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, email: true, phone: true, wechat: true, avatar: true, bio: true } },
+      },
+    })
+    if (!transaction || !isSameOrg(user, transaction)) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+
+    if (!isAdminRole(user.role) && transaction.createdById !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    return NextResponse.json(transaction)
+  } catch (error) {
+    console.error('GET /api/transactions/[id] error:', error)
+    return NextResponse.json({ error: 'Failed to fetch transaction' }, { status: 500 })
+  }
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await params
     const existing = await prisma.transaction.findUnique({ where: { id } })
-    if (!existing) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    if (!existing || !isSameOrg(user, existing)) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
 
     if (!isAdminRole(user.role) && existing.createdById !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -77,7 +105,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await params
@@ -85,7 +113,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       where: { id },
       include: { student: { select: { fullName: true } } },
     })
-    if (!existing) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    if (!existing || !isSameOrg(user, existing)) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
 
     if (!isAdminRole(user.role) && existing.createdById !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

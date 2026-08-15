@@ -1,21 +1,22 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Lightweight lookup for @mention autocomplete in messages.
 // Agents only see their own students; admins/owner see everyone.
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const q = new URL(req.url).searchParams.get('q')?.trim() || ''
 
-    const where: any = isAdminRole(user.role) ? {} : { agentId: user.id }
+    const where: any = { ...orgWhere(user), ...(isAdminRole(user.role) ? {} : { agentId: user.id }) }
     if (q) {
       where.OR = [
         { serialNumber: { contains: q } },

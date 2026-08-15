@@ -7,6 +7,34 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model Organization {
+  id              String    @id @default(uuid())
+  name            String
+  slug            String    @unique
+  status          String    @default("ACTIVE") // ACTIVE | SUSPENDED
+  suspendedAt     DateTime?
+  suspendedReason String?
+  planTier        String    @default("TRIAL")
+  studentLimit    Int?
+  inviteCode      String    @unique @default(uuid())
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  users                User[]
+  students             Student[]
+  documents            Document[]
+  transactions         Transaction[]
+  messages             Message[]
+  universityPortals    UniversityPortal[]
+  offers               Offer[]
+  documentRequirements DocumentRequirement[]
+  fieldRequirements    FieldRequirement[]
+  scanSettings         ScanSettings[]
+  activityLogs         ActivityLog[]
+  organizationProfiles OrganizationProfile[]
+}
+
 model User {
   id          String   @id @default(uuid())
   email       String   @unique
@@ -22,6 +50,9 @@ model User {
   receiveAlerts  Boolean @default(false)
   resetTokenHash       String?
   resetTokenExpiresAt  DateTime?
+  pendingEmail              String?
+  pendingEmailTokenHash     String?
+  pendingEmailTokenExpiresAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -29,12 +60,17 @@ model User {
   managedByAdmin    User?   @relation("AdminManagesAgents", fields: [managedByAdminId], references: [id])
   managedAgents     User[]  @relation("AdminManagesAgents")
 
+  // Nullable for now during the multi-tenant migration — every role except
+  // SUPER_DEVELOPER will require one once backfilled (see Milestone 1 plan).
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   students        Student[]
   uploadedDocs    Document[]      @relation("UploadedBy")
   activityLogs    ActivityLog[]
   sentMessages    Message[]       @relation("SentBy")
   receivedMessages Message[]      @relation("ReceivedBy")
-  organization    OrganizationProfile?
+  organizationProfile OrganizationProfile?
   transactions      Transaction[] @relation("AgentTransactions")
   createdTransactions Transaction[] @relation("TransactionCreatedBy")
   universityPortals UniversityPortal[]
@@ -43,7 +79,7 @@ model User {
 
 model Student {
   id                        String   @id @default(uuid())
-  serialNumber              String?  @unique
+  serialNumber              String?
   
   // Personal Information
   passportFamilyName        String
@@ -106,6 +142,12 @@ model Student {
   messages         Message[]
   transactions     Transaction[]
   portalSnapshots  PortalStudentSnapshot[]
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, serialNumber])
+  @@index([organizationId])
 }
 
 model EducationHistory {
@@ -171,6 +213,11 @@ model Document {
   uploadedById String
   uploadedBy   User     @relation("UploadedBy", fields: [uploadedById], references: [id])
   createdAt    DateTime @default(now())
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
 }
 
 model Message {
@@ -188,11 +235,16 @@ model Message {
   student     Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   isRead      Boolean   @default(false)
   createdAt   DateTime  @default(now())
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
 }
 
 model DocumentRequirement {
   id          String   @id @default(uuid())
-  key         String   @unique
+  key         String
   label       String
   description String?
   accept      String   @default(".pdf,image/*")
@@ -202,17 +254,27 @@ model DocumentRequirement {
   sortOrder   Int      @default(0)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, key])
 }
 
 model FieldRequirement {
   id          String   @id @default(uuid())
-  key         String   @unique
+  key         String
   label       String
   section     String
   isRequired  Boolean  @default(true)
   active      Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, key])
 }
 
 model OrganizationProfile {
@@ -230,6 +292,9 @@ model OrganizationProfile {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  organizationId String?       @unique
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 }
 
 model Transaction {
@@ -254,8 +319,12 @@ model Transaction {
   createdById     String
   createdBy       User     @relation("TransactionCreatedBy", fields: [createdById], references: [id])
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   @@index([agentId])
   @@index([studentId])
+  @@index([organizationId])
 }
 
 model UniversityPortal {
@@ -277,8 +346,13 @@ model UniversityPortal {
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   students PortalStudentSnapshot[]
   changes  PortalStatusChangeLog[]
+
+  @@index([organizationId])
 }
 
 model PortalStudentSnapshot {
@@ -320,7 +394,7 @@ model PortalStatusChangeLog {
 }
 
 model ScanSettings {
-  id                String    @id @default("global")
+  id                String    @id @default(uuid())
   intervalHours     Int       @default(5)
   enabled           Boolean   @default(true)
   lastRunAt         DateTime?
@@ -329,6 +403,9 @@ model ScanSettings {
   // the stagger gap instead of firing immediately alongside it.
   lastPortalScanAt  DateTime?
   staggerMinutes    Int       @default(5)
+
+  organizationId String?       @unique
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 }
 
 model VisitorLog {
@@ -362,8 +439,12 @@ model Offer {
   createdById String
   createdBy   User      @relation(fields: [createdById], references: [id])
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   @@index([isActive])
   @@index([startDate])
+  @@index([organizationId])
 }
 
 model ActivityLog {
@@ -373,4 +454,9 @@ model ActivityLog {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
 }

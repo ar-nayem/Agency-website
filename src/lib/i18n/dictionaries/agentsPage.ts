@@ -65,6 +65,13 @@ export const en = {
   minutesAgo: 'm ago',
   hoursAgo: 'h ago',
   daysAgo: 'd ago',
+  inviteLinkTitle: 'Agent Invite Link',
+  inviteLinkHint: 'Share this link with new hires — they\'ll land in your organization automatically, still pending your approval.',
+  copy: 'Copy',
+  copied: 'Copied',
+  regenerate: 'Regenerate',
+  regenerateInviteConfirm: 'Regenerate the invite link? The old link will stop working immediately.',
+  inviteRegenerated: 'Invite link regenerated',
 }
 
 export const zh = {
@@ -134,4 +141,11 @@ export const zh = {
   minutesAgo: '分钟前',
   hoursAgo: '小时前',
   daysAgo: '天前',
+  inviteLinkTitle: '代理邀请链接',
+  inviteLinkHint: '将此链接分享给新员工——他们注册后会自动加入您的机构，等待您审核激活。',
+  copy: '复制',
+  copied: '已复制',
+  regenerate: '重新生成',
+  regenerateInviteConfirm: '重新生成邀请链接？旧链接将立即失效。',
+  inviteRegenerated: '邀请链接已重新生成',
 }

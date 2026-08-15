@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -18,12 +19,12 @@ function isOwner(role: string | undefined) {
 // runtime that has no business living inside the request-handling process.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id } = await params
     const portal = await prisma.universityPortal.findUnique({ where: { id } })
-    if (!portal) return NextResponse.json({ error: 'Portal not found' }, { status: 404 })
+    if (!portal || !isSameOrg(user, portal)) return NextResponse.json({ error: 'Portal not found' }, { status: 404 })
 
     const cwd = path.join(process.cwd())
     try {

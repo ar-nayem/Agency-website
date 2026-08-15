@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { createReadStream } from 'fs'
 import { access } from 'fs/promises'
@@ -9,7 +10,7 @@ import { join } from 'path'
 import { Readable } from 'stream'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getSessionUser(req)
+  const user = await getEffectiveUser(req)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     include: { student: true }
   })
 
-  if (!doc) {
+  if (!doc || !isSameOrg(user, doc)) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 })
   }
 

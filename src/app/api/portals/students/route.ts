@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, canAccessPortals } from '@/src/lib/session'
+import { getEffectiveUser, canAccessPortals } from '@/src/lib/session'
+import { orgWhereVia } from '@/src/lib/orgScope'
 import { categorizeAdmitStatus } from '@/src/lib/portalStatus'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -13,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 // "give me everyone" by deliberate one-off choice, not a background poll.
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !(await canAccessPortals(user))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { searchParams } = new URL(req.url)
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     const dateFrom = searchParams.get('dateFrom')
     const dateTo = searchParams.get('dateTo')
 
-    const where: any = {}
+    const where: any = { ...orgWhereVia(user, 'portal') }
     if (portalId) where.portalId = portalId
     if (search) {
       where.OR = [

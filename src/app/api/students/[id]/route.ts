@@ -1,14 +1,15 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotification, statusUpdateTemplate } from '@/src/lib/email'
 import { logActivity } from '@/src/lib/activity'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     })
 
-    if (!student) {
+    if (!student || !isSameOrg(user, student)) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -51,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json()
 
     const existing = await prisma.student.findUnique({ where: { id } })
-    if (!existing) {
+    if (!existing || !isSameOrg(user, existing)) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
@@ -71,7 +72,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.status && body.status !== existing.status) {
       await sendNotification(
         `Student Status Updated: ${body.status}`,
-        statusUpdateTemplate(student.fullName, body.status, user.name || 'Admin')
+        statusUpdateTemplate(student.fullName, body.status, user.name || 'Admin'),
+        existing.organizationId
       )
       await logActivity(user.id, 'STUDENT_STATUS_CHANGED', `${student.fullName}: ${existing.status} → ${body.status}`)
     } else {
@@ -87,15 +89,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
     const existing = await prisma.student.findUnique({ where: { id } })
-    
-    if (!existing) {
+
+    if (!existing || !isSameOrg(user, existing)) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 

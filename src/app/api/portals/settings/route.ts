@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
 function isOwner(role: string | undefined) {
@@ -10,12 +11,17 @@ function isOwner(role: string | undefined) {
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+    const orgId = requireOrgId(user)
+    if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
+
+    // One ScanSettings row per org — created on first access if missing,
+    // since a brand-new org won't have one yet.
     const settings = await prisma.scanSettings.upsert({
-      where: { id: 'global' },
-      create: { id: 'global' },
+      where: { organizationId: orgId },
+      create: { organizationId: orgId },
       update: {},
     })
     return NextResponse.json(settings)
@@ -27,8 +33,11 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const orgId = requireOrgId(user)
+    if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
 
     const body = await req.json()
     const data: any = {}
@@ -49,8 +58,8 @@ export async function PUT(req: NextRequest) {
     }
 
     const settings = await prisma.scanSettings.upsert({
-      where: { id: 'global' },
-      create: { id: 'global', ...data },
+      where: { organizationId: orgId },
+      create: { organizationId: orgId, ...data },
       update: data,
     })
     return NextResponse.json(settings)

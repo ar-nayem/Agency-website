@@ -1,14 +1,15 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { buildStudentWorkbook } from '@/src/lib/studentExcel'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await params
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     })
 
-    if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    if (!student || !isSameOrg(user, student)) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     if (!isAdminRole(user.role) && student.agentId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

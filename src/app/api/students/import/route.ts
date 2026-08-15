@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { parseStudentWorkbook, REQUIRED_FLAT_KEYS } from '@/src/lib/studentExcel'
 import { createStudentFromData } from '@/src/lib/createStudent'
@@ -9,8 +10,11 @@ import { logActivity } from '@/src/lib/activity'
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const orgId = requireOrgId(user)
+    if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
 
     const formData = await req.formData()
     const file = formData.get('file') as File
@@ -39,14 +43,15 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const student = await createStudentFromData(user.id, studentData, {
+        const student = await createStudentFromData(user.id, orgId, studentData, {
           educationHistory, workExperience, familyMembers, financialSponsors,
         })
         created.push({ id: student.id, fullName: student.fullName, serialNumber: student.serialNumber })
         await logActivity(user.id, 'STUDENT_CREATED', `${student.fullName} (${student.serialNumber}) via Excel import`)
         sendNotification(
           'New Student Submission',
-          studentSubmissionTemplate(student.agent.name, student.fullName)
+          studentSubmissionTemplate(student.agent.name, student.fullName),
+          orgId
         ).catch(() => {})
       } catch (rowError: any) {
         failed.push({ row: i + 2, name: rowLabel, error: rowError?.message || 'Failed to create student' })

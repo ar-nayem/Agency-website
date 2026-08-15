@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, canAccessPortals } from '@/src/lib/session'
+import { getEffectiveUser, canAccessPortals } from '@/src/lib/session'
+import { orgWhereVia } from '@/src/lib/orgScope'
 import { categorizeAdmitStatus, STATUS_CATEGORIES } from '@/src/lib/portalStatus'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -19,7 +20,7 @@ import { NextRequest, NextResponse } from 'next/server'
 // then filters on those pairs explicitly.
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !(await canAccessPortals(user))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { searchParams } = new URL(req.url)
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
     const dateFrom = searchParams.get('dateFrom')
     const dateTo = searchParams.get('dateTo')
 
-    const common: any = {}
+    const common: any = { ...orgWhereVia(user, 'portal') }
     if (search) {
       common.OR = [
         { passportName: { contains: search } },

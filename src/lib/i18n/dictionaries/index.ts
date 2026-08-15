@@ -11,6 +11,7 @@ import * as settings from './settings'
 import * as finance from './finance'
 import * as portals from './portals'
 import * as analytics from './analytics'
+import * as platform from './platform'
 
 export type Language = 'en' | 'zh'
 
@@ -29,6 +30,7 @@ export const dictionaries = {
     finance: finance.en,
     portals: portals.en,
     analytics: analytics.en,
+    platform: platform.en,
   },
   zh: {
     common: common.zh,
@@ -44,5 +46,6 @@ export const dictionaries = {
     finance: finance.zh,
     portals: portals.zh,
     analytics: analytics.zh,
+    platform: platform.zh,
   },
 }

@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, canAccessPortals } from '@/src/lib/session'
+import { getEffectiveUser, canAccessPortals } from '@/src/lib/session'
+import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { encryptCredential } from '@/src/lib/credentialCrypto'
 import { logActivity } from '@/src/lib/activity'
@@ -12,13 +13,14 @@ function isOwner(role: string | undefined) {
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !(await canAccessPortals(user))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // A granted admin can see student status changes, but the actual portal
     // login URL/username stay an owner-only operational detail.
     const owner = isOwner(user.role)
     const portals = await prisma.universityPortal.findMany({
+      where: orgWhere(user),
       select: {
         id: true, name: true, isActive: true,
         loginUrl: owner, username: owner, platform: owner, useProxy: owner,
@@ -36,8 +38,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const orgId = requireOrgId(user)
+    if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
 
     const body = await req.json()
     const { name, loginUrl, username, password, platform, useProxy } = body
@@ -57,6 +62,7 @@ export async function POST(req: NextRequest) {
         platform: platform || undefined,
         useProxy: typeof useProxy === 'boolean' ? useProxy : undefined,
         createdById: user.id,
+        organizationId: orgId,
       },
       select: { id: true, name: true, loginUrl: true, username: true, isActive: true, platform: true, useProxy: true, createdAt: true },
     })

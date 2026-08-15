@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isAdminRole(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -26,10 +27,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         avatar: true,
         bio: true,
         createdAt: true,
+        organizationId: true,
       }
     })
 
-    if (!agent) {
+    if (!agent || !isSameOrg(user, agent)) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
     }
 

@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import JSZip from 'jszip'
 import { createReadStream } from 'fs'
@@ -11,7 +12,7 @@ import { Readable } from 'stream'
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isAdminRole(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -24,11 +25,11 @@ export async function POST(req: NextRequest) {
     }
 
     const students = await prisma.student.findMany({
-      where: { id: { in: studentIds } },
+      where: { id: { in: studentIds }, ...orgWhere(user) },
       include: { documents: true }
     })
 
-    const requirements = await prisma.documentRequirement.findMany()
+    const requirements = await prisma.documentRequirement.findMany({ where: orgWhere(user) })
     const labelByKey = new Map(requirements.map(r => [r.key, r.label]))
     labelByKey.set('PHOTO', 'Photo')
 

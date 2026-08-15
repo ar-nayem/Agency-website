@@ -4,15 +4,21 @@ import { writeFile } from 'fs/promises'
 import { mkdir } from 'fs/promises'
 import { join } from 'path'
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { isSameOrg, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const orgId = requireOrgId(user)
+    if (!orgId) {
+      return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
     }
 
     const formData = await req.formData()
@@ -26,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const student = await prisma.student.findUnique({ where: { id: studentId } })
-    if (!student) {
+    if (!student || !isSameOrg(user, student)) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
@@ -57,7 +63,8 @@ export async function POST(req: NextRequest) {
         type: docType,
         category,
         studentId,
-        uploadedById: user.id
+        uploadedById: user.id,
+        organizationId: orgId
       }
     })
 

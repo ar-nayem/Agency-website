@@ -1,7 +1,8 @@
 import { GoogleGenAI } from '@google/genai'
 import { prisma } from '@/src/lib/prisma'
+import { orgWhere } from '@/src/lib/orgScope'
 
-export type SessionUser = { id: string; role: string } | null
+export type SessionUser = { id: string; role: string; organizationId: string | null } | null
 
 export function computeOfferStatus(offer: { startDate: Date | string; endDate: Date | string | null; isActive: boolean }) {
   if (!offer.isActive) return 'PAUSED'
@@ -17,8 +18,14 @@ const gemini = process.env.GEMINI_API_KEY
   ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
   : null
 
-async function liveOffersContext() {
-  const offers = await prisma.offer.findMany({ where: { isActive: true }, orderBy: { startDate: 'asc' } })
+// organizationId is only known for a logged-in user — a logged-out visitor
+// has no org signal on this single-domain deployment (same accepted gap as
+// the public GET /api/offers endpoint), so that case stays unscoped.
+async function liveOffersContext(organizationId?: string | null) {
+  const offers = await prisma.offer.findMany({
+    where: { isActive: true, ...(organizationId ? { organizationId } : {}) },
+    orderBy: { startDate: 'asc' },
+  })
   const live = offers
     .map(o => ({ ...o, status: computeOfferStatus(o) }))
     .filter(o => o.status === 'RUNNING' || o.status === 'UPCOMING')
@@ -48,12 +55,14 @@ async function allowedAgentIds(user: { id: string; role: string }): Promise<stri
 // Best-effort entity match so we only ever inject ONE student's data into the
 // prompt (never a full roster) — keeps the LLM context small and prevents a
 // vague question like "how are my students doing" from dumping everyone's PII.
-async function matchedStudentContext(user: { id: string; role: string }, message: string): Promise<string | null> {
+async function matchedStudentContext(user: { id: string; role: string; organizationId: string | null }, message: string): Promise<string | null> {
   const tokens = message.split(/\s+/).map(t => t.trim()).filter(t => t.length >= 4)
   if (tokens.length === 0) return null
 
   const agentIds = await allowedAgentIds(user)
-  const where: any = agentIds ? { agentId: { in: agentIds } } : {}
+  // OWNER's "unrestricted" case (agentIds === null) must still stay inside
+  // their own org — without this it searched every student platform-wide.
+  const where: any = { ...orgWhere(user), ...(agentIds ? { agentId: { in: agentIds } } : {}) }
   where.OR = tokens.flatMap(t => [
     { serialNumber: { contains: t } },
     { passportNo: { contains: t } },
@@ -93,7 +102,7 @@ export async function getChatbotReply(message: string, user: SessionUser) {
     return { reply: FALLBACK_REPLY }
   }
 
-  const offersBlock = await liveOffersContext()
+  const offersBlock = await liveOffersContext(user?.organizationId)
   const studentBlock = user ? await matchedStudentContext(user, text) : null
 
   const systemPrompt = [

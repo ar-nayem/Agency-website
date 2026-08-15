@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { computeOfferStatus } from '@/src/lib/chatbot'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -9,19 +10,26 @@ import { NextRequest, NextResponse } from 'next/server'
 // widget and the portal chatbot both need to read live offers without auth.
 // ?all=true additionally returns paused/expired offers, but only to a logged
 // in ADMIN/OWNER managing the list — never leaked to the public response.
+// The fully-public path below has no org signal at all on this single-domain
+// deployment (no per-org subdomain yet) — a known, accepted gap: once a
+// second org's offers exist, this endpoint mixes both orgs' public promos.
+// Not fixable without a domain/slug-based tenant resolution, which is out of
+// scope here. The authenticated includeAll path IS scoped, below.
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const wantsAll = searchParams.get('all') === 'true'
 
     let includeAll = false
+    let where: any = { isActive: true }
     if (wantsAll) {
-      const user = await getSessionUser(req)
+      const user = await getEffectiveUser(req)
       includeAll = !!user && isAdminRole(user.role)
+      if (includeAll && user) where = orgWhere(user)
     }
 
     const offers = await prisma.offer.findMany({
-      where: includeAll ? undefined : { isActive: true },
+      where,
       orderBy: { startDate: 'asc' },
       select: {
         id: true, title: true, description: true, imageUrl: true,
@@ -42,10 +50,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isAdminRole(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const orgId = requireOrgId(user)
+    if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
 
     const body = await req.json()
     const { title, description, imageUrl, startDate, endDate, isActive } = body
@@ -63,6 +74,7 @@ export async function POST(req: NextRequest) {
         endDate: endDate ? new Date(endDate) : null,
         isActive: isActive ?? true,
         createdById: user.id,
+        organizationId: orgId,
       },
     })
 

@@ -1,20 +1,24 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
     const view = searchParams.get('view')
     const personId = searchParams.get('personId')
 
-    // Same personal-vs-org scoping as GET /api/transactions.
+    // Same personal-vs-org scoping as GET /api/transactions, including the
+    // same fix: an ADMIN with zero agents assigned yet must not fall through
+    // to an unfiltered createdById, so orgWhere is merged in unconditionally
+    // below regardless of which branch runs here.
     const where: any = {}
     if (view === 'org' && isAdminRole(user.role)) {
       if (user.role === 'ADMIN') {
@@ -31,6 +35,7 @@ export async function GET(req: NextRequest) {
     } else {
       where.createdById = user.id
     }
+    Object.assign(where, orgWhere(user))
 
     const dateFrom = searchParams.get('dateFrom')
     const dateTo = searchParams.get('dateTo')

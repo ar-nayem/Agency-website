@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Plus, Pencil, Trash2, TrendingUp, TrendingDown, Wallet, Clock3 } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, TrendingUp, TrendingDown, Wallet, Clock3, Receipt } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { formatMoney } from '@/src/lib/money'
@@ -150,18 +150,25 @@ export default function StudentFinancePage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground max-w-[200px] truncate">{tx.description || '-'}</td>
                     <td className="px-6 py-4">
-                      {(isAdmin || tx.createdById === session?.user?.id) ? (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => { setEditing(tx); setShowModal(true) }} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => deleteTransaction(tx.id)} className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors inline-flex">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {tx.type === 'INCOME' && (isAdmin || tx.createdById === session?.user?.id) && (
+                          <Link href={`/dashboard/students/${studentId}/finance/receipt/${tx.id}`} target="_blank" className="text-slate-500 hover:text-slate-700 p-1.5 rounded-lg hover:bg-muted transition-colors inline-flex" title={t('finance.receiptTitle')}>
+                            <Receipt className="w-4 h-4" />
+                          </Link>
+                        )}
+                        {(isAdmin || tx.createdById === session?.user?.id) ? (
+                          <>
+                            <button onClick={() => { setEditing(tx); setShowModal(true) }} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => deleteTransaction(tx.id)} className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors inline-flex">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

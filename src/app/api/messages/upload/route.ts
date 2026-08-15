@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 
 const MAX_SIZE = 30 * 1024 * 1024
@@ -10,7 +10,7 @@ const ZIP_TYPES = ['application/zip', 'application/x-zip-compressed', 'applicati
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 
 function getClientIp(req: NextRequest): string | null {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const path = typeof body.path === 'string' ? body.path.slice(0, 300) : '/'
     const referrer = typeof body.referrer === 'string' ? body.referrer.slice(0, 500) : null
 
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
 
     await prisma.visitorLog.create({
       data: {

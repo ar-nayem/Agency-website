@@ -27,6 +27,7 @@ export const en = {
   roleOwner: 'Developer',
   roleAdmin: 'Admin',
   roleAgent: 'Agent',
+  roleSuperDeveloper: 'Super Developer',
   active: 'Active',
   inactive: 'Inactive',
 }
@@ -60,6 +61,7 @@ export const zh = {
   roleOwner: '开发者',
   roleAdmin: '管理员',
   roleAgent: '代理',
+  roleSuperDeveloper: '超级开发者',
   active: '已启用',
   inactive: '已停用',
 }

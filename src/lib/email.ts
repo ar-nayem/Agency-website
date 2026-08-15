@@ -17,27 +17,40 @@ const emailConfigured = !!process.env.EMAIL_PASS && process.env.EMAIL_PASS !== '
 // since the developer should never be removable via the dashboard toggle.
 const DEVELOPER_EMAIL = process.env.DEVELOPER_ALERT_EMAIL || '15329802848@163.com'
 
-async function getAlertRecipients(): Promise<string[]> {
-  const recipients = new Set([DEVELOPER_EMAIL])
+// organizationId scopes who hears about an event — a new student submission
+// or status change at org B must never email org A's people. Pass null only
+// for genuinely platform-level events with no specific org (falls back to
+// the developer inbox alone).
+async function getAlertRecipients(organizationId: string | null): Promise<string[]> {
+  if (!organizationId) return [DEVELOPER_EMAIL]
+  const recipients = new Set<string>()
   try {
+    const owner = await prisma.user.findFirst({
+      where: { role: 'OWNER', organizationId },
+      select: { email: true },
+    })
+    if (owner) recipients.add(owner.email)
     const optedIn = await prisma.user.findMany({
-      where: { receiveAlerts: true, isActive: true },
+      where: { receiveAlerts: true, isActive: true, organizationId },
       select: { email: true },
     })
     optedIn.forEach((u) => recipients.add(u.email))
   } catch (error) {
-    console.error('Failed to load alert recipients, falling back to developer inbox:', error)
+    console.error('Failed to load alert recipients:', error)
   }
+  // Always fall back to the developer inbox if an org somehow has no owner
+  // yet — better than silently dropping the notification.
+  if (recipients.size === 0) recipients.add(DEVELOPER_EMAIL)
   return Array.from(recipients)
 }
 
-export async function sendNotification(subject: string, html: string) {
+export async function sendNotification(subject: string, html: string, organizationId: string | null) {
   if (!emailConfigured) {
     // No real SMTP credentials set (e.g. local dev) — skip instead of failing login on every request.
     return
   }
   try {
-    const to = await getAlertRecipients()
+    const to = await getAlertRecipients(organizationId)
     await transporter.sendMail({
       from: `"Student Portal" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
       to,
@@ -73,6 +86,17 @@ export function passwordResetTemplate(name: string, code: string) {
     <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px;">${code}</p>
     <p>Enter this code on the reset page to choose a new password. It expires in 15 minutes.</p>
     <p>If you didn't request this, you can safely ignore this email.</p>
+  `
+}
+
+export function emailChangeVerificationTemplate(name: string, code: string) {
+  return `
+    <h2>Confirm your new email address</h2>
+    <p>Hi ${name},</p>
+    <p>Your verification code is:</p>
+    <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px;">${code}</p>
+    <p>Enter this code on the portal to confirm this is your new login email. It expires in 15 minutes.</p>
+    <p>If you didn't request this, you can safely ignore this email — your account email won't change.</p>
   `
 }
 

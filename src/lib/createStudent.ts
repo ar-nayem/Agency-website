@@ -7,9 +7,12 @@ type NestedRows = {
   financialSponsors?: any[]
 }
 
-export async function createStudentFromData(agentId: string, studentData: Record<string, any>, nested: NestedRows) {
+export async function createStudentFromData(agentId: string, organizationId: string, studentData: Record<string, any>, nested: NestedRows) {
+  // Scoped per-org so one agency's serial numbering (and the rough student
+  // volume it implies) never leaks into another's — each org starts its own
+  // GL-00001 sequence rather than sharing one platform-wide counter.
   const lastStudent = await prisma.student.findFirst({
-    where: { serialNumber: { not: null } },
+    where: { organizationId, serialNumber: { not: null } },
     orderBy: { serialNumber: 'desc' },
   })
   let nextNum = 1
@@ -24,6 +27,7 @@ export async function createStudentFromData(agentId: string, studentData: Record
       ...(studentData as any),
       serialNumber,
       agentId,
+      organizationId,
       status: 'PENDING',
       educationHistory: nested.educationHistory?.length ? { create: nested.educationHistory } : undefined,
       workExperience: nested.workExperience?.length ? { create: nested.workExperience } : undefined,

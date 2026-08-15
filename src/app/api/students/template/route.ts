@@ -1,17 +1,18 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { buildStudentWorkbook } from '@/src/lib/studentExcel'
 
 export async function GET(req: NextRequest) {
-  const user = await getSessionUser(req)
+  const user = await getEffectiveUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const requirements = await prisma.documentRequirement.findMany({
-    where: { active: true, isRequired: true },
+    where: { active: true, isRequired: true, ...orgWhere(user) },
     orderBy: { sortOrder: 'asc' },
     select: { label: true },
   })

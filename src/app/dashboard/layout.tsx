@@ -7,8 +7,10 @@ import { signOut, useSession } from 'next-auth/react'
 import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
-  ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone, Bell
+  ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone, Bell,
+  Building2, LogIn
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { LanguageToggle } from '@/src/components/LanguageToggle'
 import { ThemeToggle } from '@/src/components/ThemeToggle'
@@ -20,23 +22,53 @@ interface OrgData {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const { t } = useLanguage()
   const role = session?.user?.role
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
   const isOwner = role === 'OWNER'
+  const isImpersonating = !!session?.user?.impersonatingOrgId
+  // role is the *effective* role (OWNER while impersonating — see auth.ts's
+  // session callback), so this only fires for a genuine platform operator
+  // with no org context of their own.
+  const isSuperDeveloper = role === 'SUPER_DEVELOPER'
 
   const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
   const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Chengdu Dream Fly Edu', logo: null })
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
   const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [exitingImpersonation, setExitingImpersonation] = useState(false)
+
+  async function exitImpersonation() {
+    setExitingImpersonation(true)
+    try {
+      const res = await fetch('/api/platform/impersonate/exit', { method: 'POST', credentials: 'include' })
+      if (res.ok) {
+        await update({ impersonatingOrgId: null })
+        window.location.href = '/dashboard/platform'
+      } else {
+        toast.error(t('platform.exitFailed'))
+        setExitingImpersonation(false)
+      }
+    } catch {
+      toast.error(t('platform.exitFailed'))
+      setExitingImpersonation(false)
+    }
+  }
 
   useEffect(() => {
     setMobileOpen(false)
   }, [pathname])
 
   useEffect(() => {
+    // A genuine (non-impersonating) platform operator has no org of their
+    // own — skip the org-branding fetch entirely rather than showing a
+    // fallback that looks like one specific tenant's name.
+    if (isSuperDeveloper) {
+      setOwnerOrg({ name: t('platform.title'), logo: null })
+      return
+    }
     // Fetch owner's org for company branding
     fetch('/api/organization?owner=true', { credentials: 'include' })
       .then(r => r.json())
@@ -69,7 +101,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         })
         .catch(() => {})
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, session?.user?.impersonatingOrgId, isSuperDeveloper])
 
   const baseNav = [
     { label: t('nav.messages'), href: '/dashboard/messages', icon: MessageSquare },
@@ -104,12 +136,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: t('nav.portals'), href: '/dashboard/portals', icon: Globe },
   ] : []
 
-  const navItems = [...adminNav, ...portalsNav, ...ownerNav, ...baseNav]
+  const platformNav = isSuperDeveloper ? [
+    { label: t('platform.title'), href: '/dashboard/platform', icon: Building2 },
+  ] : []
+
+  const navItems = isSuperDeveloper
+    ? [...platformNav, { label: t('nav.settings'), href: '/dashboard/profile', icon: Settings }]
+    : [...adminNav, ...portalsNav, ...ownerNav, ...baseNav]
 
   return (
     <div className="min-h-screen bg-background">
+      {isImpersonating && (
+        <div className="no-print sticky top-0 z-50 bg-amber-500 text-amber-950 px-4 py-2 flex items-center justify-center gap-3 text-sm font-medium flex-wrap">
+          <LogIn className="w-4 h-4 shrink-0" />
+          <span>{t('platform.impersonatingBanner').replace('{org}', ownerOrg.name)}</span>
+          <button
+            onClick={exitImpersonation}
+            disabled={exitingImpersonation}
+            className="px-2.5 py-0.5 bg-amber-950/10 hover:bg-amber-950/20 rounded-lg font-semibold transition disabled:opacity-50"
+          >
+            {t('platform.exitImpersonation')}
+          </button>
+        </div>
+      )}
       {/* Mobile top bar */}
-      <div className="lg:hidden sticky top-0 z-20 bg-card border-b border-border px-4 py-3 flex items-center justify-between gap-3">
+      <div className="no-print lg:hidden sticky top-0 z-20 bg-card border-b border-border px-4 py-3 flex items-center justify-between gap-3">
         <button
           onClick={() => setMobileOpen(true)}
           className="p-2 -ml-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors shrink-0"
@@ -134,7 +185,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Sidebar */}
         <aside
-          className={`w-64 bg-card border-r border-border fixed inset-y-0 left-0 z-40 flex flex-col shadow-sm transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+          className={`no-print w-64 bg-card border-r border-border fixed inset-y-0 left-0 z-40 flex flex-col shadow-sm transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -210,11 +261,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="px-3 mb-3">
               <span className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${
+                isSuperDeveloper ? 'bg-slate-800 text-slate-100 dark:bg-slate-200 dark:text-slate-900' :
                 role === 'OWNER' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400' :
                 isAdmin ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400' :
                 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
               }`}>
-                {role === 'OWNER' ? t('common.roleOwner') : isAdmin ? t('common.roleAdmin') : t('common.roleAgent')}
+                {isSuperDeveloper ? t('common.roleSuperDeveloper') : role === 'OWNER' ? t('common.roleOwner') : isAdmin ? t('common.roleAdmin') : t('common.roleAgent')}
               </span>
             </div>
             <button
@@ -228,7 +280,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 min-w-0">
+        <main className="print:m-0 print:p-0 flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 min-w-0">
           {children}
         </main>
       </div>

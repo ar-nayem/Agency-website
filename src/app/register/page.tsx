@@ -1,19 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { GraduationCap, Loader2, ArrowLeft } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { GraduationCap, Loader2, ArrowLeft, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { LanguageToggle } from '@/src/components/LanguageToggle'
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
+  )
+}
+
+function RegisterForm() {
   const { t } = useLanguage()
-  const router = useRouter()
+  const searchParams = useSearchParams()
+  const code = searchParams.get('code')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [checkingInvite, setCheckingInvite] = useState(true)
+  const [organizationName, setOrganizationName] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' })
+
+  useEffect(() => {
+    if (!code) {
+      setCheckingInvite(false)
+      return
+    }
+    fetch(`/api/auth/register?code=${encodeURIComponent(code)}`)
+      .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => setOrganizationName(ok ? data.organizationName : null))
+      .catch(() => setOrganizationName(null))
+      .finally(() => setCheckingInvite(false))
+  }, [code])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,7 +49,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, password: form.password }),
+        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, password: form.password, code }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -59,10 +82,29 @@ export default function RegisterPage() {
               <GraduationCap className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">{t('login.registerTitle')}</h1>
-            <p className="text-slate-400 mt-1 text-sm">{t('login.registerSubtitle')}</p>
+            <p className="text-slate-400 mt-1 text-sm">
+              {organizationName ? `${t('login.registerJoining')} ${organizationName}` : t('login.registerSubtitle')}
+            </p>
           </div>
 
-          {submitted ? (
+          {checkingInvite ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+            </div>
+          ) : !code || !organizationName ? (
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-amber-500/10 rounded-2xl mb-1">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <p className="text-sm font-medium text-white">{t('login.registerInviteInvalidTitle')}</p>
+              <p className="text-sm text-slate-400">
+                {code ? t('login.registerInviteInvalidMessage') : t('login.registerInviteMissingMessage')}
+              </p>
+              <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300">
+                <ArrowLeft className="w-4 h-4" /> {t('login.backToSignIn')}
+              </Link>
+            </div>
+          ) : submitted ? (
             <div className="text-center space-y-4">
               <p className="text-sm text-slate-300">{t('login.registerPendingMessage')}</p>
               <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300">

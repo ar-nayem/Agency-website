@@ -1,17 +1,22 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isAdminRole(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { organizationId: true, role: true } })
+    if (!targetUser || !isSameOrg(user, targetUser)) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
     const body = await req.json()
 
     // Whitelist: never let a raw request body reach prisma.update directly —
@@ -44,15 +49,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (managedByAdminId === null) {
         data.managedByAdminId = null
       } else if (typeof managedByAdminId === 'string') {
-        const [target, admin] = await Promise.all([
-          prisma.user.findUnique({ where: { id }, select: { role: true } }),
-          prisma.user.findUnique({ where: { id: managedByAdminId }, select: { role: true } }),
-        ])
-        if (!target || target.role !== 'AGENT') {
+        if (targetUser.role !== 'AGENT') {
           return NextResponse.json({ error: 'Only agent accounts can be assigned to an admin' }, { status: 400 })
         }
+        const admin = await prisma.user.findUnique({ where: { id: managedByAdminId }, select: { role: true, organizationId: true } })
         if (!admin || admin.role !== 'ADMIN') {
           return NextResponse.json({ error: 'Can only assign to an admin account' }, { status: 400 })
+        }
+        // Can't be expressed as a DB constraint (SQLite has no partial/conditional
+        // FK) — an admin can only manage agents within their own organization.
+        if (admin.organizationId !== targetUser.organizationId) {
+          return NextResponse.json({ error: 'Admin and agent must be in the same organization' }, { status: 400 })
         }
         data.managedByAdminId = managedByAdminId
       }
@@ -81,7 +88,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Only the owner can delete accounts' }, { status: 401 })
     }
@@ -90,6 +97,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (id === user.id) {
       return NextResponse.json({ error: 'You cannot delete your own account' }, { status: 400 })
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { organizationId: true } })
+    if (!targetUser || !isSameOrg(user, targetUser)) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const studentCount = await prisma.student.count({ where: { agentId: id } })

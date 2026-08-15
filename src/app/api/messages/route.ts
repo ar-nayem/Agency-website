@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
             { senderId: withUserId, receiverId: user.id },
           ],
           ...(studentId ? { studentId } : {}),
+          ...orgWhere(user),
         },
         include: {
           sender: { select: { id: true, name: true, role: true } },
@@ -39,6 +41,7 @@ export async function GET(req: NextRequest) {
           { senderId: user.id },
           { receiverId: user.id },
         ],
+        ...orgWhere(user),
       },
       include: {
         sender: { select: { id: true, name: true, role: true } },
@@ -74,8 +77,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const orgId = requireOrgId(user)
+    if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
 
     const body = await req.json()
     const { receiverId, content, studentId, attachmentUrl, attachmentName, attachmentType, attachmentSize } = body
@@ -84,9 +90,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
+    // Every receiver lookup fetches organizationId too — messaging never
+    // crosses an org boundary, regardless of the sender/receiver's roles.
+    const receiverForOrgCheck = await prisma.user.findUnique({ where: { id: receiverId }, select: { role: true, organizationId: true } })
+    if (!receiverForOrgCheck || receiverForOrgCheck.organizationId !== orgId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     if (user.role === 'AGENT') {
-      const receiver = await prisma.user.findUnique({ where: { id: receiverId }, select: { role: true } })
-      if (!receiver || (receiver.role !== 'ADMIN' && receiver.role !== 'OWNER')) {
+      const receiver = receiverForOrgCheck
+      if (receiver.role !== 'ADMIN' && receiver.role !== 'OWNER') {
         return NextResponse.json({ error: 'Agents can only message admins' }, { status: 403 })
       }
       if (receiver.role === 'OWNER') {
@@ -110,6 +123,7 @@ export async function POST(req: NextRequest) {
         senderId: user.id,
         receiverId,
         studentId: studentId || null,
+        organizationId: orgId,
       },
       include: {
         sender: { select: { id: true, name: true, role: true } },

@@ -1,25 +1,36 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { isSameOrg, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
+// Every real caller of this route is inside /dashboard (sidebar branding,
+// receipt styling) — always an authenticated user in practice, even though
+// this handler previously didn't enforce it. Now requiring a session lets
+// ?owner=true resolve "my own org's profile" instead of a global OWNER search.
 export async function GET(req: NextRequest) {
   try {
+    const user = await getEffectiveUser(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { searchParams } = new URL(req.url)
     const userId = searchParams.get('userId')
     const owner = searchParams.get('owner')
 
     if (owner === 'true') {
-      const ownerUser = await prisma.user.findFirst({ where: { role: 'OWNER' } })
-      if (!ownerUser) return NextResponse.json(null)
-      const org = await prisma.organizationProfile.findUnique({
-        where: { userId: ownerUser.id },
+      if (!user.organizationId) return NextResponse.json(null)
+      const org = await prisma.organizationProfile.findFirst({
+        where: { organizationId: user.organizationId },
       })
       return NextResponse.json(org)
     }
 
     if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
+
+    // Only ever return a profile belonging to the caller's own org.
+    const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { organizationId: true } })
+    if (!targetUser || !isSameOrg(user, targetUser)) return NextResponse.json(null)
 
     const org = await prisma.organizationProfile.findUnique({
       where: { userId },
@@ -33,19 +44,23 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const orgId = requireOrgId(user)
+    if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
 
     const body = await req.json()
     const { name, logo, email, phone, wechat, address, website, description, welcomeMessage } = body
 
     const org = await prisma.organizationProfile.upsert({
       where: { userId: user.id },
-      update: { name, logo, email, phone, wechat, address, website, description, welcomeMessage },
+      update: { name, logo, email, phone, wechat, address, website, description, welcomeMessage, organizationId: orgId },
       create: {
         name: name || user.name,
         logo, email, phone, wechat, address, website, description, welcomeMessage,
         userId: user.id,
+        organizationId: orgId,
       },
     })
 

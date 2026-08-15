@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { orgWhere, isSameOrg, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
 import { TRANSACTION_CATEGORIES, PAYMENT_METHODS, TRANSACTION_STATUSES } from '@/src/lib/money'
@@ -37,7 +38,7 @@ async function scopeWhere(user: { id: string; role: string }, searchParams: URLS
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
@@ -47,8 +48,8 @@ export async function GET(req: NextRequest) {
     if (studentId) {
       // Entity view: a single student's full money picture, regardless of
       // who logged each entry — same access rule as the student record itself.
-      const student = await prisma.student.findUnique({ where: { id: studentId }, select: { agentId: true } })
-      if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      const student = await prisma.student.findUnique({ where: { id: studentId }, select: { agentId: true, organizationId: true } })
+      if (!student || !isSameOrg(user, student)) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
       if (!isAdminRole(user.role) && student.agentId !== user.id) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
@@ -56,6 +57,12 @@ export async function GET(req: NextRequest) {
     } else {
       where = await scopeWhere(user, searchParams)
     }
+    // scopeWhere's view=org branch has a bug when an ADMIN has zero agents
+    // assigned yet: allowedIds stays null and where.createdById is left
+    // unset, which would leak every org's transactions. Closing that (and
+    // the general cross-org case) unconditionally, regardless of which
+    // branch above ran.
+    where = { ...where, ...orgWhere(user) }
 
     const type = searchParams.get('type')
     if (type) where.type = type
@@ -98,8 +105,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const orgId = requireOrgId(user)
+    if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
 
     const body = await req.json()
     const { studentId, type, category, amount, currency, paymentMethod, status, description, transactionDate } = body
@@ -125,7 +135,7 @@ export async function POST(req: NextRequest) {
     }
 
     const student = await prisma.student.findUnique({ where: { id: studentId } })
-    if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    if (!student || !isSameOrg(user, student)) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
 
     if (!isAdminRole(user.role) && student.agentId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -136,6 +146,7 @@ export async function POST(req: NextRequest) {
         studentId,
         agentId: student.agentId,
         createdById: user.id,
+        organizationId: orgId,
         type,
         category,
         amount: amountNum,

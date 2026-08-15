@@ -1,13 +1,14 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || !isAdminRole(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status')
     const agentId = searchParams.get('agentId')
 
-    const where: any = {}
+    const where: any = { ...orgWhere(user) }
     if (status) where.status = status
     if (agentId) where.agentId = agentId
 

@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Resolves a @mention like "GL-00004" back to a student id for the message
@@ -9,14 +10,16 @@ import { NextRequest, NextResponse } from 'next/server'
 // "doesn't exist" so ownership isn't leaked.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ serial: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { serial } = await params
-    const student = await prisma.student.findUnique({
-      where: { serialNumber: serial },
+    // serialNumber is unique per-org, not globally, so findUnique on it alone
+    // no longer applies — the org filter is what narrows this to one row.
+    const student = await prisma.student.findFirst({
+      where: { serialNumber: serial, ...orgWhere(user) },
       select: { id: true, fullName: true, serialNumber: true, status: true, agentId: true },
     })
 

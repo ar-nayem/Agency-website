@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getSessionUser } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
+import { isSameOrg } from '@/src/lib/orgScope'
 import { logActivity } from '@/src/lib/activity'
 import { hash } from 'bcryptjs'
 import { randomBytes } from 'crypto'
@@ -19,14 +20,14 @@ function generatePassword(length = 12): string {
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getSessionUser(req)
+    const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Only the owner can reset passwords' }, { status: 401 })
     }
 
     const { id } = await params
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, name: true } })
-    if (!target || target.role === 'DELETED') {
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, name: true, organizationId: true } })
+    if (!target || target.role === 'DELETED' || !isSameOrg(user, target)) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 

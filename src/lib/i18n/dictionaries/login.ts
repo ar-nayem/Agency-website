@@ -36,6 +36,10 @@ export const en = {
   phoneOptional: 'Phone (optional)',
   createAccount: 'Create Account',
   registerPendingMessage: 'Account created! An admin will review and activate it — you\'ll be able to sign in once approved.',
+  registerJoining: 'Joining',
+  registerInviteInvalidTitle: 'This invite link isn\'t valid',
+  registerInviteInvalidMessage: 'It may have expired or been regenerated. Ask your organization for a fresh invite link.',
+  registerInviteMissingMessage: 'This page needs an invite link from your organization\'s owner to sign up.',
 }
 
 export const zh = {
@@ -76,4 +80,8 @@ export const zh = {
   phoneOptional: '电话（选填）',
   createAccount: '创建账号',
   registerPendingMessage: '账号已创建！管理员审核通过后即可登录。',
+  registerJoining: '加入',
+  registerInviteInvalidTitle: '邀请链接无效',
+  registerInviteInvalidMessage: '该链接可能已过期或已被重新生成，请向所在机构索取新的邀请链接。',
+  registerInviteMissingMessage: '此页面需要机构负责人提供的邀请链接才能注册。',
 }
