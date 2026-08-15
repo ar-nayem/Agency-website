@@ -47,6 +47,20 @@ export const authConfig: any = {
         token.role = user.role
         token.id = user.id
         token.organizationId = user.organizationId ?? null
+      } else if (token.organizationId === undefined) {
+        // Self-heals any session that was already issued before this claim
+        // existed on the token (e.g. everyone logged in at deploy time) —
+        // undefined (never set) is distinct from null (deliberately no org,
+        // like a SUPER_DEVELOPER). Left unhealed, role-based page redirects
+        // that depend on organizationId being present loop forever. Runs
+        // once per session: after this, organizationId is baked into the
+        // re-signed token and this branch won't fire again.
+        const dbUser = await prisma.user.findUnique({
+          where: { id: (token.id ?? token.sub) as string },
+          select: { role: true, organizationId: true },
+        })
+        token.role = dbUser?.role ?? token.role
+        token.organizationId = dbUser?.organizationId ?? null
       }
       // How SUPER_DEVELOPER impersonation mutates an already-issued session:
       // the client calls next-auth's session.update({ impersonatingOrgId })
