@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Plus, Pencil, Trash2, TrendingUp, TrendingDown, Wallet, Clock3, Receipt } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, TrendingUp, TrendingDown, Wallet, Clock3, Receipt, Check, X, Banknote } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { formatMoney } from '@/src/lib/money'
@@ -22,6 +22,9 @@ export default function StudentFinancePage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
+  const [editingFee, setEditingFee] = useState(false)
+  const [feeInput, setFeeInput] = useState('')
+  const [savingFee, setSavingFee] = useState(false)
 
   useEffect(() => { fetchAll() }, [studentId])
 
@@ -66,6 +69,39 @@ export default function StudentFinancePage() {
     return { charged, spent, profit: charged - spent, outstanding }
   }, [transactions])
 
+  const due = typeof student?.totalFee === 'number' ? student.totalFee - totals.charged : null
+
+  function startEditFee() {
+    setFeeInput(typeof student?.totalFee === 'number' ? String(student.totalFee) : '')
+    setEditingFee(true)
+  }
+
+  async function saveFee() {
+    const parsed = feeInput.trim() === '' ? null : Number(feeInput)
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
+      toast.error(t('finance.totalFeeSaveFailed'))
+      return
+    }
+    setSavingFee(true)
+    try {
+      const res = await fetch(`/api/students/${studentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ totalFee: parsed }),
+      })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setStudent((prev: any) => ({ ...prev, totalFee: updated.totalFee }))
+      setEditingFee(false)
+      toast.success(t('finance.totalFeeSaved'))
+    } catch {
+      toast.error(t('finance.totalFeeSaveFailed'))
+    } finally {
+      setSavingFee(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => ({
     COMPLETED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
     PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
@@ -106,6 +142,53 @@ export default function StudentFinancePage() {
         <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-4">
           <div className="flex items-center gap-2 text-amber-600 mb-1"><Clock3 className="w-4 h-4" /><span className="text-[11px] font-semibold uppercase tracking-wider">{t('finance.outstanding')}</span></div>
           <p className="text-xl font-bold text-amber-600">{formatMoney(totals.outstanding)}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400"><Banknote className="w-4 h-4" /><span className="text-[11px] font-semibold uppercase tracking-wider">{t('finance.totalFee')}</span></div>
+            {!editingFee && (
+              <button onClick={startEditFee} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors" title={t('finance.editTotalFee')}>
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {editingFee ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                autoFocus
+                value={feeInput}
+                onChange={(e) => setFeeInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveFee(); if (e.key === 'Escape') setEditingFee(false) }}
+                className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
+              />
+              <button onClick={saveFee} disabled={savingFee} className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors disabled:opacity-50 shrink-0">
+                <Check className="w-4 h-4" />
+              </button>
+              <button onClick={() => setEditingFee(false)} disabled={savingFee} className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <p className="text-xl font-bold text-foreground">
+              {typeof student.totalFee === 'number' ? formatMoney(student.totalFee) : <span className="text-muted-foreground text-base font-medium">{t('finance.totalFeeNotSet')}</span>}
+            </p>
+          )}
+        </div>
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-4">
+          <div className="flex items-center gap-2 mb-1 text-muted-foreground"><Wallet className="w-4 h-4" /><span className="text-[11px] font-semibold uppercase tracking-wider">{t('finance.amountDue')}</span></div>
+          {due === null ? (
+            <p className="text-base font-medium text-muted-foreground">{t('finance.setTotalFee')}</p>
+          ) : due <= 0 ? (
+            <p className="text-xl font-bold text-emerald-600">{t('finance.fullyPaid')}</p>
+          ) : (
+            <p className="text-xl font-bold text-rose-600">{formatMoney(due)}</p>
+          )}
         </div>
       </div>
 

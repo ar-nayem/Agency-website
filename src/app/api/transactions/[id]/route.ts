@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const transaction = await prisma.transaction.findUnique({
       where: { id },
       include: {
-        student: { select: { id: true, fullName: true, serialNumber: true, mainEmail: true, passportNo: true } },
+        student: { select: { id: true, fullName: true, serialNumber: true, mainEmail: true, passportNo: true, totalFee: true } },
         agent: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true, email: true, phone: true, wechat: true, avatar: true, bio: true } },
       },

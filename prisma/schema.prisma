@@ -132,7 +132,8 @@ model Student {
   
   // Program applied for
   programApplied            String?
-  
+  totalFee                  Float?
+
   status                    String   @default("PENDING")
   notes                     String?
   createdAt                 DateTime @default(now())

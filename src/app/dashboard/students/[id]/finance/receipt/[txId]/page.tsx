@@ -19,6 +19,7 @@ export default function ReceiptPage() {
 
   const [tx, setTx] = useState<any>(null)
   const [org, setOrg] = useState<any>(null)
+  const [paidToDate, setPaidToDate] = useState(0)
   const [loading, setLoading] = useState(true)
   const [style, setStyle] = useState<ReceiptStyle>('organization')
 
@@ -31,8 +32,18 @@ export default function ReceiptPage() {
           fetch('/api/organization?owner=true', { credentials: 'include' }),
         ])
         if (!txRes.ok) throw new Error()
-        setTx(await txRes.json())
+        const txData = await txRes.json()
+        setTx(txData)
         if (orgRes.ok) setOrg(await orgRes.json())
+
+        const allTxRes = await fetch(`/api/transactions?studentId=${txData.studentId}`, { credentials: 'include' })
+        if (allTxRes.ok) {
+          const allTx = await allTxRes.json()
+          const paid = Array.isArray(allTx)
+            ? allTx.filter((t: any) => t.type === 'INCOME' && t.status === 'COMPLETED').reduce((sum: number, t: any) => sum + t.amount, 0)
+            : 0
+          setPaidToDate(paid)
+        }
       } catch {
         toast.error(t('finance.receiptLoadFailed'))
         router.replace(`/dashboard/students/${studentId}/finance`)
@@ -178,6 +189,27 @@ export default function ReceiptPage() {
             </div>
           </div>
         </div>
+
+        {typeof tx.student.totalFee === 'number' && (
+          <div className="bg-slate-50 rounded-xl p-4 mb-10 -mt-6">
+            <div className="flex justify-between text-sm py-1">
+              <p className="text-slate-500">{t('finance.receiptTotalFee')}</p>
+              <p className="font-medium">{formatMoney(tx.student.totalFee, tx.currency)}</p>
+            </div>
+            <div className="flex justify-between text-sm py-1">
+              <p className="text-slate-500">{t('finance.receiptPaidToDate')}</p>
+              <p className="font-medium">{formatMoney(paidToDate, tx.currency)}</p>
+            </div>
+            <div className="flex justify-between text-sm py-1 pt-2 mt-1 border-t border-slate-200">
+              <p className="font-bold">{t('finance.receiptAmountDue')}</p>
+              {tx.student.totalFee - paidToDate <= 0 ? (
+                <p className="font-bold text-emerald-600">{t('finance.fullyPaid')}</p>
+              ) : (
+                <p className="font-bold text-rose-600">{formatMoney(tx.student.totalFee - paidToDate, tx.currency)}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         <p className="text-xs text-slate-400 text-center pt-6 border-t border-slate-200">
           {t('finance.receiptFooter')}
