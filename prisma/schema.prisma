@@ -48,6 +48,7 @@ model User {
   bio         String?
   canViewPortals Boolean @default(false)
   receiveAlerts  Boolean @default(false)
+  canExportBackup Boolean @default(false)
   resetTokenHash       String?
   resetTokenExpiresAt  DateTime?
   pendingEmail              String?

@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import {
   Users, UserCheck,
-  TrendingUp, FileText, Eye, Globe, ChevronDown, ChevronUp
+  TrendingUp, FileText, Eye, Globe, ChevronDown, ChevronUp, HardDriveDownload
 } from 'lucide-react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
@@ -19,6 +19,7 @@ interface AdminDashboardProps {
     rejected: number
   }
   recentStudents: any[]
+  canExportBackup: boolean
 }
 
 interface DonutSlice {
@@ -93,7 +94,7 @@ function StatusDonut({ slices, total }: { slices: DonutSlice[]; total: number })
   )
 }
 
-export default function AdminDashboard({ stats, recentStudents }: AdminDashboardProps) {
+export default function AdminDashboard({ stats, recentStudents, canExportBackup }: AdminDashboardProps) {
   const { t } = useLanguage()
   const { data: session } = useSession()
   const isOwner = session?.user?.role === 'OWNER'
@@ -157,9 +158,21 @@ export default function AdminDashboard({ stats, recentStudents }: AdminDashboard
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('dashboard.adminTitle')}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('dashboard.overview')}</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('dashboard.adminTitle')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t('dashboard.overview')}</p>
+        </div>
+        {canExportBackup && (
+          <a
+            href="/api/backup/export"
+            className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-indigo-500/20 shrink-0"
+            title={t('dashboard.downloadBackupHint')}
+          >
+            <HardDriveDownload className="w-4 h-4" />
+            {t('dashboard.downloadBackup')}
+          </a>
+        )}
       </div>
 
       {hasPortalAccess && (

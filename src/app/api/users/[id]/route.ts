@@ -41,6 +41,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data.receiveAlerts = body.receiveAlerts
     }
 
+    if (typeof body.canExportBackup === 'boolean') {
+      if (user.role !== 'OWNER') {
+        return NextResponse.json({ error: 'Only the owner can grant full-backup export access' }, { status: 403 })
+      }
+      data.canExportBackup = body.canExportBackup
+    }
+
     if ('managedByAdminId' in body) {
       if (user.role !== 'OWNER') {
         return NextResponse.json({ error: 'Only the owner can assign agents to admins' }, { status: 403 })
@@ -78,6 +85,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         managedByAdminId: true,
         canViewPortals: true,
         receiveAlerts: true,
+        canExportBackup: true,
       }
     })
     return NextResponse.json(updated)

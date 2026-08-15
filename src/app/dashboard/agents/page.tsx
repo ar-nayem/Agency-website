@@ -30,6 +30,7 @@ export default function AgentsPage() {
   const [copied, setCopied] = useState(false)
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [portalAccessId, setPortalAccessId] = useState<string | null>(null)
+  const [backupAccessId, setBackupAccessId] = useState<string | null>(null)
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
@@ -172,6 +173,29 @@ export default function AgentsPage() {
       toast.error(t('agentsPage.updateFailed'))
     } finally {
       setAssigningId(null)
+    }
+  }
+
+  async function toggleBackupAccess(userId: string, next: boolean) {
+    setBackupAccessId(userId)
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ canExportBackup: next })
+      })
+      if (res.ok) {
+        toast.success(t('agentsPage.backupAccessUpdated'))
+        fetchAgents()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || t('agentsPage.updateFailed'))
+      }
+    } catch {
+      toast.error(t('agentsPage.updateFailed'))
+    } finally {
+      setBackupAccessId(null)
     }
   }
 
@@ -435,6 +459,7 @@ export default function AgentsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.role')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.managedBy')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.portalAccess')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.backupAccess')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('common.status')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.students')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.created')}</th>
@@ -488,6 +513,24 @@ export default function AgentsPage() {
                         title={t('agentsPage.togglePortalAccessHint')}
                       >
                         {user.canViewPortals ? t('agentsPage.allowed') : t('agentsPage.blocked')}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {user.role === 'ADMIN' ? (
+                      <button
+                        onClick={() => toggleBackupAccess(user.id, !user.canExportBackup)}
+                        disabled={backupAccessId === user.id}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 ${
+                          user.canExportBackup
+                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 hover:bg-indigo-200'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                        }`}
+                        title={t('agentsPage.toggleBackupAccessHint')}
+                      >
+                        {user.canExportBackup ? t('agentsPage.allowed') : t('agentsPage.blocked')}
                       </button>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>

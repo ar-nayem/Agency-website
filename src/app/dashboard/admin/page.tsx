@@ -41,6 +41,12 @@ export default async function AdminPage() {
   const approvedCount = await prisma.student.count({ where: { organizationId, status: 'APPROVED' } })
   const rejectedCount = await prisma.student.count({ where: { organizationId, status: 'REJECTED' } })
 
+  let canExportBackup = session.user.role === 'OWNER'
+  if (!canExportBackup) {
+    const dbUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { canExportBackup: true } })
+    canExportBackup = !!dbUser?.canExportBackup
+  }
+
   return (
     <AdminDashboard
       stats={{
@@ -51,6 +57,7 @@ export default async function AdminPage() {
         rejected: rejectedCount
       }}
       recentStudents={recentStudents}
+      canExportBackup={canExportBackup}
     />
   )
 }

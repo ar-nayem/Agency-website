@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
         managedByAdmin: { select: { id: true, name: true } },
         canViewPortals: true,
         receiveAlerts: true,
+        canExportBackup: true,
         _count: {
           select: { students: true }
         }
