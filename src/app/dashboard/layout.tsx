@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
   ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone, Bell,
-  Building2, LogIn
+  Building2, LogIn, ListTodo
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -115,6 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: t('nav.allStudents'), href: '/dashboard/students', icon: Users },
     { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
     { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
+    { label: t('nav.tasks'), href: '/dashboard/tasks', icon: ListTodo },
     { label: 'Offers', href: '/dashboard/offers', icon: Megaphone },
   ] : [
     { label: t('nav.dashboard'), href: '/dashboard/agent', icon: LayoutDashboard },

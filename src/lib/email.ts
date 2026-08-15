@@ -103,6 +103,36 @@ export function emailChangeVerificationTemplate(name: string, code: string) {
   `
 }
 
+export function taskAssignedTemplate(adminName: string, taskTitle: string, dueAt: Date, description: string | null, assignedByName: string) {
+  return `
+    <h2>New task assigned to you</h2>
+    <p>Hi ${adminName},</p>
+    <p><strong>${taskTitle}</strong></p>
+    ${description ? `<p>${description}</p>` : ''}
+    <p><strong>Due:</strong> ${dueAt.toLocaleString()}</p>
+    <p><strong>Assigned by:</strong> ${assignedByName}</p>
+    <p>Log in to the portal's Tasks page to mark it complete once done.</p>
+  `
+}
+
+export function taskCompletedTemplate(adminName: string, taskTitle: string, completedAt: Date) {
+  return `
+    <h2>Task completed</h2>
+    <p><strong>${adminName}</strong> marked the following task complete:</p>
+    <p><strong>${taskTitle}</strong></p>
+    <p><strong>Completed:</strong> ${completedAt.toLocaleString()}</p>
+  `
+}
+
+export function taskOverdueTemplate(adminName: string, taskTitle: string, dueAt: Date) {
+  return `
+    <h2>Task not completed</h2>
+    <p>The deadline passed and <strong>${adminName}</strong> has not marked this task complete:</p>
+    <p><strong>${taskTitle}</strong></p>
+    <p><strong>Was due:</strong> ${dueAt.toLocaleString()}</p>
+  `
+}
+
 export function agentSignupTemplate(name: string, email: string) {
   return `
     <h2>New Agent Signup</h2>

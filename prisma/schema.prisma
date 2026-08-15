@@ -33,6 +33,7 @@ model Organization {
   scanSettings         ScanSettings[]
   activityLogs         ActivityLog[]
   organizationProfiles OrganizationProfile[]
+  tasks                Task[]
 }
 
 model User {
@@ -76,6 +77,8 @@ model User {
   createdTransactions Transaction[] @relation("TransactionCreatedBy")
   universityPortals UniversityPortal[]
   offers            Offer[]
+  createdTasks      Task[] @relation("TaskCreatedBy")
+  assignedTasks     Task[] @relation("TaskAssignedTo")
 }
 
 model Student {
@@ -460,4 +463,31 @@ model ActivityLog {
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
+}
+
+model Task {
+  id                String    @id @default(uuid())
+  title             String
+  description       String?
+  dueAt             DateTime
+  status            String    @default("PENDING") // PENDING | COMPLETED
+  completedAt       DateTime?
+  // Set once an overdue email has gone out, so the deadline-check cron
+  // never sends the same "not completed" notice twice for one task.
+  overdueNotifiedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id])
+
+  assignedToId String
+  assignedTo   User   @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+
+  @@index([organizationId])
+  @@index([assignedToId])
+  @@index([dueAt])
 }
