@@ -8,19 +8,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
-import { useLanguage } from '@/src/lib/i18n/LanguageContext'
-
-const TIMEZONES: string[] = (() => {
-  try {
-    return (Intl as any).supportedValuesOf('timeZone')
-  } catch {
-    return [
-      'UTC', 'Asia/Shanghai', 'Asia/Dhaka', 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore',
-      'Asia/Tokyo', 'Asia/Hong_Kong', 'Europe/London', 'Europe/Paris', 'Europe/Berlin',
-      'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Australia/Sydney',
-    ]
-  }
-})()
+import { useLanguage, parseUtcOffsetMinutes } from '@/src/lib/i18n/LanguageContext'
 
 interface ProfileData {
   id: string
@@ -48,7 +36,29 @@ interface OrgData {
 
 export default function ProfilePage() {
   const { data: session, update } = useSession()
-  const { t, timezone, setTimezone } = useLanguage()
+  const { t, lang, timezone, setTimezone } = useLanguage()
+  const [tzInput, setTzInput] = useState(timezone)
+
+  useEffect(() => {
+    setTzInput(timezone)
+  }, [timezone])
+
+  function commitTimezone() {
+    if (tzInput === timezone) return
+    if (setTimezone(tzInput)) {
+      toast.success(t('settings.timezoneSaved'))
+    } else {
+      toast.error(t('settings.timezoneInvalid'))
+      setTzInput(timezone)
+    }
+  }
+
+  const tzPreviewMinutes = parseUtcOffsetMinutes(tzInput)
+  const tzPreview = tzPreviewMinutes !== null
+    ? new Date(Date.now() + tzPreviewMinutes * 60000).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+        timeZone: 'UTC', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    : null
   const [activeTab, setActiveTab] = useState<'profile' | 'organization'>('profile')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -392,24 +402,23 @@ export default function ProfilePage() {
             </div>
             <div className="md:col-span-2">
               <label className={labelClass}>{t('settings.timezoneLabel')}</label>
-              <div className="relative">
+              <div className="relative max-w-xs">
                 <Clock className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
                 <input
-                  list="timezone-options"
-                  value={timezone}
-                  onChange={e => {
-                    if (TIMEZONES.includes(e.target.value)) {
-                      setTimezone(e.target.value)
-                      toast.success(t('settings.timezoneSaved'))
-                    }
-                  }}
+                  value={tzInput}
+                  onChange={e => setTzInput(e.target.value)}
+                  onBlur={commitTimezone}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() } }}
                   className={`${inputClass} pl-9`}
+                  placeholder={t('settings.timezonePlaceholder')}
                 />
-                <datalist id="timezone-options">
-                  {TIMEZONES.map(tz => <option key={tz} value={tz} />)}
-                </datalist>
               </div>
               <p className="text-xs text-muted-foreground mt-1.5">{t('settings.timezoneHint')}</p>
+              {tzPreview && (
+                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1 font-medium">
+                  {t('settings.timezonePreview')} {tzPreview}
+                </p>
+              )}
             </div>
           </div>
 
