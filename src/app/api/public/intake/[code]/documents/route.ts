@@ -4,21 +4,21 @@ import { writeFile } from 'fs/promises'
 import { mkdir } from 'fs/promises'
 import { join } from 'path'
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
-import { isSameOrg, requireOrgId } from '@/src/lib/orgScope'
+import { resolveIntakeUser } from '@/src/lib/intake'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
 
-export async function POST(req: NextRequest) {
-  try {
-    const user = await getEffectiveUser(req)
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+// Unlike the staff-only /api/documents route, this is a public unauthenticated
+// upload surface, so file size is capped hard server-side rather than trusted
+// to client-side validation.
+const MAX_FILE_SIZE = 15 * 1024 * 1024
 
-    const orgId = requireOrgId(user)
-    if (!orgId) {
-      return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
+export async function POST(req: NextRequest, { params }: { params: Promise<{ code: string }> }) {
+  try {
+    const { code } = await params
+    const agent = await resolveIntakeUser(code)
+    if (!agent) {
+      return NextResponse.json({ error: 'This application link is invalid or no longer active' }, { status: 404 })
     }
 
     const formData = await req.formData()
@@ -31,13 +31,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const student = await prisma.student.findUnique({ where: { id: studentId } })
-    if (!student || !isSameOrg(user, student)) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File exceeds the 15MB upload limit' }, { status: 400 })
     }
 
-    if (!isAdminRole(user.role) && student.agentId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const student = await prisma.student.findUnique({ where: { id: studentId } })
+    if (!student || student.organizationId !== agent.organizationId || student.agentId !== agent.id) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
     const bytes = await file.arrayBuffer()
@@ -64,16 +64,16 @@ export async function POST(req: NextRequest) {
         type: docType,
         category,
         studentId,
-        uploadedById: user.id,
-        organizationId: orgId
+        uploadedById: agent.id,
+        organizationId: agent.organizationId
       }
     })
 
-    await logActivity(user.id, 'DOCUMENT_UPLOADED', `${file.name} → ${student.fullName}`)
+    await logActivity(agent.id, 'DOCUMENT_UPLOADED', `${file.name} → ${student.fullName}`)
 
     return NextResponse.json(doc, { status: 201 })
   } catch (error) {
-    console.error('Upload error:', error)
+    console.error('Public intake upload error:', error)
     return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 })
   }
 }

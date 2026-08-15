@@ -14,6 +14,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/public/intake') ||
     pathname === '/api/analytics/track' ||
     isPublicOffersRead ||
     isChatbot

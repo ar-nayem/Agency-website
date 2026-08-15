@@ -1,0 +1,33 @@
+export const en = {
+  pageTitle: 'Student Application',
+  applyingThrough: 'Apply through',
+  applyingThroughAt: 'at',
+  checkingLink: 'Checking application link...',
+  invalidLinkTitle: 'Application Link Invalid',
+  invalidLinkMessage: 'This application link is invalid or no longer active. Please contact your agent for a new link.',
+  submittedTitle: 'Application Submitted',
+  submittedMessage: 'Thank you — your application has been received. Your agent will review it and be in touch with next steps.',
+  shareLinkButton: 'Application Link',
+  shareLinkModalTitle: 'Your Application Link',
+  shareLinkModalHint: 'Share this link with a student. Anything they submit through it is attributed to you and appears in your students list, ready to review.',
+  regenerateConfirm: 'Regenerate your application link? The old link will stop working immediately.',
+  regenerated: 'Application link regenerated',
+  failedLoadLink: 'Failed to load application link',
+}
+
+export const zh = {
+  pageTitle: '学生申请',
+  applyingThrough: '申请渠道',
+  applyingThroughAt: '于',
+  checkingLink: '正在验证申请链接...',
+  invalidLinkTitle: '申请链接无效',
+  invalidLinkMessage: '此申请链接无效或已失效。请联系您的代理获取新链接。',
+  submittedTitle: '申请已提交',
+  submittedMessage: '感谢您的提交——您的申请已收到。您的代理会审核并与您联系后续事宜。',
+  shareLinkButton: '申请链接',
+  shareLinkModalTitle: '您的申请链接',
+  shareLinkModalHint: '将此链接分享给学生。通过该链接提交的申请将归属于您，并出现在您的学生列表中等待审核。',
+  regenerateConfirm: '重新生成您的申请链接？旧链接将立即失效。',
+  regenerated: '申请链接已重新生成',
+  failedLoadLink: '加载申请链接失败',
+}

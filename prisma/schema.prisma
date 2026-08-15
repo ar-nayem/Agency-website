@@ -56,6 +56,7 @@ model User {
   pendingEmail              String?
   pendingEmailTokenHash     String?
   pendingEmailTokenExpiresAt DateTime?
+  studentIntakeCode String? @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
     const uploadDir = join(process.cwd(), 'public', 'uploads')
     await mkdir(uploadDir, { recursive: true })
 
-    const ext = file.name.split('.').pop() || ''
+    const rawExt = file.name.split('.').pop() || ''
+    const ext = /^[a-zA-Z0-9]{1,10}$/.test(rawExt) ? rawExt : 'bin'
     const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
     await writeFile(join(uploadDir, filename), buffer)
 

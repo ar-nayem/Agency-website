@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Search, Filter, Download, Eye, FileText, Trash2,
-  CheckCircle, XCircle, Clock, UserCheck
+  CheckCircle, XCircle, Clock, UserCheck, Link2, Copy, Check, RefreshCw, X, Loader2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -33,6 +33,11 @@ function StudentsPageInner() {
   const [agents, setAgents] = useState<any[]>([])
   const [admins, setAdmins] = useState<any[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [intakeCode, setIntakeCode] = useState<string | null>(null)
+  const [intakeLoading, setIntakeLoading] = useState(false)
+  const [intakeRegenerating, setIntakeRegenerating] = useState(false)
+  const [intakeCopied, setIntakeCopied] = useState(false)
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
 
   useEffect(() => {
@@ -67,6 +72,51 @@ function StudentsPageInner() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function openShareModal() {
+    setShareModalOpen(true)
+    if (!intakeCode) fetchIntakeCode()
+  }
+
+  async function fetchIntakeCode() {
+    setIntakeLoading(true)
+    try {
+      const res = await fetch('/api/profile/intake-link', { credentials: 'include' })
+      if (res.ok) setIntakeCode((await res.json()).code)
+      else toast.error(t('intake.failedLoadLink'))
+    } catch {
+      toast.error(t('intake.failedLoadLink'))
+    } finally {
+      setIntakeLoading(false)
+    }
+  }
+
+  async function regenerateIntakeCode() {
+    if (!confirm(t('intake.regenerateConfirm'))) return
+    setIntakeRegenerating(true)
+    try {
+      const res = await fetch('/api/profile/intake-link', { method: 'POST', credentials: 'include' })
+      if (res.ok) {
+        setIntakeCode((await res.json()).code)
+        toast.success(t('intake.regenerated'))
+      } else {
+        toast.error(t('intake.failedLoadLink'))
+      }
+    } catch {
+      toast.error(t('intake.failedLoadLink'))
+    } finally {
+      setIntakeRegenerating(false)
+    }
+  }
+
+  function copyIntakeLink() {
+    if (!intakeCode) return
+    const url = `${window.location.origin}/apply/${intakeCode}`
+    navigator.clipboard.writeText(url).then(() => {
+      setIntakeCopied(true)
+      setTimeout(() => setIntakeCopied(false), 2000)
+    })
   }
 
   async function exportToExcel() {
@@ -183,13 +233,22 @@ function StudentsPageInner() {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{isAdmin ? t('students.allStudentsTitle') : t('students.myStudentsTitle')}</h1>
           <p className="text-muted-foreground mt-1 text-sm">{t('students.manageAndReview')}</p>
         </div>
-        <Link
-          href="/dashboard/students/new"
-          className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition flex items-center gap-2 text-sm shadow-sm shadow-indigo-500/20"
-        >
-          <UserCheck className="w-4 h-4" />
-          {t('nav.addStudent')}
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openShareModal}
+            className="bg-card border border-border text-foreground px-4 py-2.5 rounded-xl font-medium hover:bg-muted transition flex items-center gap-2 text-sm shadow-sm"
+          >
+            <Link2 className="w-4 h-4" />
+            {t('intake.shareLinkButton')}
+          </button>
+          <Link
+            href="/dashboard/students/new"
+            className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition flex items-center gap-2 text-sm shadow-sm shadow-indigo-500/20"
+          >
+            <UserCheck className="w-4 h-4" />
+            {t('nav.addStudent')}
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -374,6 +433,54 @@ function StudentsPageInner() {
           </div>
         )}
       </div>
+
+      {shareModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShareModalOpen(false)}>
+          <div className="bg-card rounded-2xl shadow-xl border border-border/60 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-lg font-semibold text-foreground">{t('intake.shareLinkModalTitle')}</h3>
+              </div>
+              <button onClick={() => setShareModalOpen(false)} className="p-1 text-muted-foreground hover:text-foreground rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{t('intake.shareLinkModalHint')}</p>
+
+            {intakeLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  readOnly
+                  value={intakeCode ? `${typeof window !== 'undefined' ? window.location.origin : ''}/apply/${intakeCode}` : ''}
+                  placeholder={t('common.loading')}
+                  className="flex-1 min-w-[220px] px-3 py-2 border border-border rounded-xl bg-muted text-sm text-foreground"
+                />
+                <button
+                  onClick={copyIntakeLink}
+                  disabled={!intakeCode}
+                  className="px-3 py-2 border border-border rounded-xl text-sm font-medium hover:bg-muted transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {intakeCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  {intakeCopied ? t('agentsPage.copied') : t('agentsPage.copy')}
+                </button>
+                <button
+                  onClick={regenerateIntakeCode}
+                  disabled={intakeRegenerating || !intakeCode}
+                  className="px-3 py-2 border border-border rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {intakeRegenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {t('agentsPage.regenerate')}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
