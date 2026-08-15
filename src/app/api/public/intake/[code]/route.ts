@@ -7,6 +7,20 @@ import { sendNotification, studentSubmissionTemplate } from '@/src/lib/email'
 import { logActivity } from '@/src/lib/activity'
 import { createStudentFromData } from '@/src/lib/createStudent'
 
+// Fields an anonymous applicant may set. Internal-only Student columns
+// (totalFee, myCosting, status, serialNumber, agentId, organizationId, ...)
+// are deliberately excluded — an allowlist here, not a denylist, so any
+// future staff-only field added to the schema is safe by default.
+const PUBLIC_STUDENT_FIELDS = [
+  'passportFamilyName', 'givenName', 'fullName', 'photo', 'gender', 'chineseName',
+  'maritalStatus', 'religion', 'occupation', 'employerInstitution', 'nationality',
+  'dateOfBirth', 'yearsInHomeCountry', 'countryOfBirth', 'wechat', 'placeOfBirth',
+  'chineseDescent', 'currentlyInChina', 'homeAddress', 'detailedAddress', 'cityProvince',
+  'country', 'zipcode', 'phoneMobile', 'mainEmail', 'passportNo', 'passportExpiryDate',
+  'oldPassportNo', 'oldPassportExpiry', 'studiedInChina', 'visaType', 'chinaInstitution',
+  'visaExpiryDate', 'studyInChinaFrom', 'studyInChinaTo', 'programApplied', 'notes',
+]
+
 // Public — no auth. Lets the apply page confirm a staff member's intake
 // code is real (and pull the org's document/field requirements) before
 // showing the application form.
@@ -50,13 +64,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
     }
 
     const body = await req.json()
-    const {
-      educationHistory,
-      workExperience,
-      familyMembers,
-      financialSponsors,
-      ...studentData
-    } = body
+    const { educationHistory, workExperience, familyMembers, financialSponsors } = body
+    const studentData: Record<string, unknown> = {}
+    for (const key of PUBLIC_STUDENT_FIELDS) {
+      if (key in body) studentData[key] = body[key]
+    }
 
     const student = await createStudentFromData(agent.id, agent.organizationId, studentData, {
       educationHistory, workExperience, familyMembers, financialSponsors,

@@ -133,6 +133,7 @@ model Student {
   // Program applied for
   programApplied            String?
   totalFee                  Float?
+  myCosting                 Float?
 
   status                    String   @default("PENDING")
   notes                     String?

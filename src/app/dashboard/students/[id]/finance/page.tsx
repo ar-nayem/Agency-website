@@ -25,6 +25,9 @@ export default function StudentFinancePage() {
   const [editingFee, setEditingFee] = useState(false)
   const [feeInput, setFeeInput] = useState('')
   const [savingFee, setSavingFee] = useState(false)
+  const [editingCosting, setEditingCosting] = useState(false)
+  const [costingInput, setCostingInput] = useState('')
+  const [savingCosting, setSavingCosting] = useState(false)
 
   useEffect(() => { fetchAll() }, [studentId])
 
@@ -70,6 +73,9 @@ export default function StudentFinancePage() {
   }, [transactions])
 
   const due = typeof student?.totalFee === 'number' ? student.totalFee - totals.charged : null
+  const margin = typeof student?.totalFee === 'number' && typeof student?.myCosting === 'number'
+    ? student.totalFee - student.myCosting
+    : null
 
   function startEditFee() {
     setFeeInput(typeof student?.totalFee === 'number' ? String(student.totalFee) : '')
@@ -99,6 +105,37 @@ export default function StudentFinancePage() {
       toast.error(t('finance.totalFeeSaveFailed'))
     } finally {
       setSavingFee(false)
+    }
+  }
+
+  function startEditCosting() {
+    setCostingInput(typeof student?.myCosting === 'number' ? String(student.myCosting) : '')
+    setEditingCosting(true)
+  }
+
+  async function saveCosting() {
+    const parsed = costingInput.trim() === '' ? null : Number(costingInput)
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
+      toast.error(t('finance.myCostingSaveFailed'))
+      return
+    }
+    setSavingCosting(true)
+    try {
+      const res = await fetch(`/api/students/${studentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ myCosting: parsed }),
+      })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setStudent((prev: any) => ({ ...prev, myCosting: updated.myCosting }))
+      setEditingCosting(false)
+      toast.success(t('finance.myCostingSaved'))
+    } catch {
+      toast.error(t('finance.myCostingSaveFailed'))
+    } finally {
+      setSavingCosting(false)
     }
   }
 
@@ -145,7 +182,7 @@ export default function StudentFinancePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-4">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400"><Banknote className="w-4 h-4" /><span className="text-[11px] font-semibold uppercase tracking-wider">{t('finance.totalFee')}</span></div>
@@ -188,6 +225,49 @@ export default function StudentFinancePage() {
             <p className="text-xl font-bold text-emerald-600">{t('finance.fullyPaid')}</p>
           ) : (
             <p className="text-xl font-bold text-rose-600">{formatMoney(due)}</p>
+          )}
+        </div>
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400"><Wallet className="w-4 h-4" /><span className="text-[11px] font-semibold uppercase tracking-wider">{t('finance.myCosting')}</span></div>
+            {!editingCosting && (
+              <button onClick={startEditCosting} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors" title={t('finance.editMyCosting')}>
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {editingCosting ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                autoFocus
+                value={costingInput}
+                onChange={(e) => setCostingInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveCosting(); if (e.key === 'Escape') setEditingCosting(false) }}
+                className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
+              />
+              <button onClick={saveCosting} disabled={savingCosting} className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors disabled:opacity-50 shrink-0">
+                <Check className="w-4 h-4" />
+              </button>
+              <button onClick={() => setEditingCosting(false)} disabled={savingCosting} className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <p className="text-xl font-bold text-foreground">
+              {typeof student.myCosting === 'number' ? formatMoney(student.myCosting) : <span className="text-muted-foreground text-base font-medium">{t('finance.myCostingNotSet')}</span>}
+            </p>
+          )}
+          <p className="text-[11px] text-muted-foreground mt-1.5">{t('finance.myCostingHint')}</p>
+        </div>
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-4">
+          <div className="flex items-center gap-2 mb-1 text-indigo-600"><TrendingUp className="w-4 h-4" /><span className="text-[11px] font-semibold uppercase tracking-wider">{t('finance.myMargin')}</span></div>
+          {margin === null ? (
+            <p className="text-base font-medium text-muted-foreground">{t('finance.setMyCosting')}</p>
+          ) : (
+            <p className={`text-xl font-bold ${margin >= 0 ? 'text-foreground' : 'text-rose-600'}`}>{formatMoney(margin)}</p>
           )}
         </div>
       </div>
