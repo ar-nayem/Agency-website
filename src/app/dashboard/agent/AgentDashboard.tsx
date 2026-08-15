@@ -14,7 +14,7 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboard({ stats, recentStudents }: AgentDashboardProps) {
-  const { t } = useLanguage()
+  const { t, formatDate } = useLanguage()
 
   const cards = [
     { label: t('dashboard.myStudentsCard'), value: stats.students, icon: UserCheck, color: 'from-indigo-500 to-indigo-600', bg: 'bg-indigo-50', href: '/dashboard/students' },
@@ -122,7 +122,7 @@ export default function AgentDashboard({ stats, recentStudents }: AgentDashboard
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">
-                      {new Date(student.createdAt).toLocaleDateString()}
+                      {formatDate(student.createdAt)}
                     </td>
                     <td className="px-6 py-4">
                       <Link href={`/dashboard/students/${student.id}`} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">

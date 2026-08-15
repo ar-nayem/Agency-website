@@ -243,7 +243,7 @@ interface MessageItem {
 
 export default function MessagesContent() {
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, formatDateTime } = useLanguage()
   const searchParams = useSearchParams()
   const initialWith = searchParams.get('with')
   const initialStudent = searchParams.get('studentId')
@@ -521,8 +521,7 @@ export default function MessagesContent() {
   }
 
   function formatTime(dateStr: string) {
-    const d = new Date(dateStr)
-    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return formatDateTime(dateStr, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
   const activeConversation = conversations.find(c => 

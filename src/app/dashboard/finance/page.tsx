@@ -20,7 +20,7 @@ function toISODate(d: Date) { return d.toISOString().slice(0, 10) }
 
 export default function FinancePage() {
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, formatDate } = useLanguage()
   const role = session?.user?.role
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
 
@@ -432,7 +432,7 @@ export default function FinancePage() {
               ) : (
                 transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-muted/60 transition-colors">
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{new Date(tx.transactionDate).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{formatDate(tx.transactionDate)}</td>
                     <td className="px-6 py-4 text-sm">
                       <Link href={`/dashboard/students/${tx.studentId}/finance`} className="font-medium text-indigo-600 hover:text-indigo-700">{tx.student?.fullName}</Link>
                     </td>

@@ -9,7 +9,7 @@ import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 export default function AnalyticsPage() {
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, formatDateTime } = useLanguage()
   const router = useRouter()
 
   const [data, setData] = useState<any | null>(null)
@@ -218,7 +218,7 @@ export default function AnalyticsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{u.role}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-foreground">{u.count}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{new Date(u.lastSeen).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{formatDateTime(u.lastSeen)}</td>
                   </tr>
                 ))
               )}
@@ -249,7 +249,7 @@ export default function AnalyticsPage() {
               ) : (
                 data.recent.map((r: any) => (
                   <tr key={r.id} className="hover:bg-muted/60 transition-colors">
-                    <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(r.createdAt).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(r.createdAt)}</td>
                     <td className="px-6 py-4 text-sm text-foreground">{r.userName || t('analytics.anonymous')}</td>
                     <td className="px-6 py-4 text-sm font-mono text-muted-foreground">{r.path}</td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{r.browser} / {r.os} / {r.device}</td>

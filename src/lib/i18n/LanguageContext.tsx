@@ -8,10 +8,23 @@ interface LanguageContextValue {
   setLang: (lang: Language) => void
   toggleLang: () => void
   t: (path: string) => string
+  timezone: string
+  setTimezone: (tz: string) => void
+  formatDateTime: (date: string | number | Date, opts?: Intl.DateTimeFormatOptions) => string
+  formatDate: (date: string | number | Date, opts?: Intl.DateTimeFormatOptions) => string
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
 const COOKIE_NAME = 'lang'
+const TZ_COOKIE_NAME = 'tz'
+
+function browserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
 
 function readCookie(name: string): string | null {
   if (typeof document === 'undefined') return null
@@ -29,10 +42,28 @@ function lookup(dict: any, path: string): unknown {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Language>('en')
+  const [timezone, setTimezoneState] = useState<string>('UTC')
 
   useEffect(() => {
     const saved = readCookie(COOKIE_NAME)
     if (saved === 'en' || saved === 'zh') setLangState(saved)
+
+    const savedTz = readCookie(TZ_COOKIE_NAME)
+    setTimezoneState(savedTz || browserTimezone())
+
+    // DB value (set explicitly by the user in their profile) wins over the
+    // cookie/browser guess once it loads — keeps the choice consistent
+    // across devices/browsers, not just the one that set the cookie.
+    fetch('/api/profile', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const tz = data?.profile?.timezone
+        if (tz) {
+          setTimezoneState(tz)
+          writeCookie(TZ_COOKIE_NAME, tz)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   const setLang = useCallback((next: Language) => {
@@ -51,8 +82,31 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return typeof fallback === 'string' ? fallback : path
   }, [lang])
 
+  const setTimezone = useCallback((tz: string) => {
+    setTimezoneState(tz)
+    writeCookie(TZ_COOKIE_NAME, tz)
+    fetch('/api/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ timezone: tz }),
+    }).catch(() => {})
+  }, [])
+
+  const locale = lang === 'zh' ? 'zh-CN' : 'en-US'
+
+  const formatDateTime = useCallback((date: string | number | Date, opts?: Intl.DateTimeFormatOptions): string => {
+    const d = date instanceof Date ? date : new Date(date)
+    return d.toLocaleString(locale, { timeZone: timezone, ...opts })
+  }, [locale, timezone])
+
+  const formatDate = useCallback((date: string | number | Date, opts?: Intl.DateTimeFormatOptions): string => {
+    const d = date instanceof Date ? date : new Date(date)
+    return d.toLocaleDateString(locale, { timeZone: timezone, ...opts })
+  }, [locale, timezone])
+
   return (
-    <LanguageContext.Provider value={{ lang, setLang, toggleLang, t }}>
+    <LanguageContext.Provider value={{ lang, setLang, toggleLang, t, timezone, setTimezone, formatDateTime, formatDate }}>
       {children}
     </LanguageContext.Provider>
   )

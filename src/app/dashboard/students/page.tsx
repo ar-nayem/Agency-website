@@ -21,7 +21,7 @@ export default function StudentsPage() {
 
 function StudentsPageInner() {
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, formatDate } = useLanguage()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [students, setStudents] = useState<any[]>([])
@@ -360,7 +360,7 @@ function StudentsPageInner() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">
-                      {new Date(student.createdAt).toLocaleDateString()}
+                      {formatDate(student.createdAt)}
                     </td>
                     <td className="px-6 py-4">
                       <Link href={`/dashboard/students/${student.id}`} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { Plus, Pencil, Trash2, Megaphone, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 type Offer = {
   id: string
@@ -30,6 +31,7 @@ function toDateInput(v: string | null) {
 
 export default function OffersPage() {
   const { data: session } = useSession()
+  const { formatDate } = useLanguage()
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
 
   const [offers, setOffers] = useState<Offer[]>([])
@@ -150,8 +152,8 @@ export default function OffersPage() {
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">{offer.description}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {new Date(offer.startDate).toLocaleDateString()}
-                  {offer.endDate ? ` – ${new Date(offer.endDate).toLocaleDateString()}` : ' – ongoing'}
+                  {formatDate(offer.startDate)}
+                  {offer.endDate ? ` – ${formatDate(offer.endDate)}` : ' – ongoing'}
                   {offer.createdBy?.name ? ` · by ${offer.createdBy.name}` : ''}
                 </p>
               </div>

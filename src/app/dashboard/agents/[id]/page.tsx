@@ -36,7 +36,7 @@ export default function AgentDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, formatDate, formatDateTime } = useLanguage()
 
   const ACTION_LABELS: Record<string, string> = {
     LOGIN: t('agentsPage.activityLogin'),
@@ -107,7 +107,7 @@ export default function AgentDetailPage() {
   }
 
   function formatTime(dateStr: string) {
-    return new Date(dateStr).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return formatDateTime(dateStr, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
   function timeAgo(dateStr: string) {
@@ -169,7 +169,7 @@ export default function AgentDetailPage() {
             <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" />{agent.email}</span>
             {agent.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{agent.phone}</span>}
             {agent.wechat && <span className="flex items-center gap-1"><WeChat className="w-3.5 h-3.5" />{agent.wechat}</span>}
-            <span>{t('agentsPage.joined')} {new Date(agent.createdAt).toLocaleDateString()}</span>
+            <span>{t('agentsPage.joined')} {formatDate(agent.createdAt)}</span>
           </div>
         </div>
       </div>

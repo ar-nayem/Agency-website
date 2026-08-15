@@ -40,7 +40,7 @@ function categoryLabel(cat: StatusCategory, t: (key: string) => string) {
 
 export default function PortalsPage() {
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, formatDate, formatDateTime } = useLanguage()
   const router = useRouter()
 
   const [tab, setTab] = useState<Tab>('portals')
@@ -422,7 +422,7 @@ export default function PortalsPage() {
                     {!p.lastScanStatus && <Clock3 className="w-4 h-4 text-muted-foreground" />}
                     <span className="text-muted-foreground">
                       {p.lastScanAt
-                        ? `${new Date(p.lastScanAt).toLocaleString()} — ${p.lastScanStatus === 'SUCCESS' ? `${p.lastScanCount ?? 0} ${t('portals.studentsFound')}` : p.lastScanError}`
+                        ? `${formatDateTime(p.lastScanAt)} — ${p.lastScanStatus === 'SUCCESS' ? `${p.lastScanCount ?? 0} ${t('portals.studentsFound')}` : p.lastScanError}`
                         : t('portals.neverScanned')}
                     </span>
                   </div>
@@ -623,13 +623,13 @@ export default function PortalsPage() {
                         <td className="px-6 py-4 text-sm font-medium text-foreground">{s.passportName || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{s.passportNo || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{s.program || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">{s.appliedAt ? new Date(s.appliedAt).toLocaleDateString() : '-'}</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{s.appliedAt ? formatDate(s.appliedAt) : '-'}</td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${CATEGORY_STYLES[s.category as StatusCategory]}`}>
                             {t(`portals.cat${s.category.charAt(0)}${s.category.slice(1).toLowerCase()}`)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">{new Date(s.lastSeenAt).toLocaleString()}</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{formatDateTime(s.lastSeenAt)}</td>
                         <td className="px-6 py-4 text-sm">
                           {s.matchedStudent ? (
                             <span className="text-indigo-600">{s.matchedStudent.fullName}</span>
@@ -669,7 +669,7 @@ export default function PortalsPage() {
                 ) : (
                   history.map((c) => (
                     <tr key={c.id} className="hover:bg-muted/60 transition-colors">
-                      <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(c.detectedAt).toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(c.detectedAt)}</td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">{c.portal?.name}</td>
                       <td className="px-6 py-4 text-sm font-medium text-foreground">{c.passportName || c.passportNo || '-'}</td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">{c.field === 'admitStatus' ? t('portals.admitStatus') : t('portals.applyStatus')}</td>

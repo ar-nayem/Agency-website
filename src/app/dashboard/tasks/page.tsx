@@ -21,7 +21,7 @@ interface TaskItem {
 export default function TasksPage() {
   const { data: session } = useSession()
   const router = useRouter()
-  const { t, lang } = useLanguage()
+  const { t, formatDateTime } = useLanguage()
   const role = session?.user?.role
   const isOwner = role === 'OWNER'
 
@@ -268,7 +268,7 @@ export default function TasksPage() {
                       {isOwner && <td className="px-6 py-4 text-sm text-muted-foreground">{task.assignedTo.name}</td>}
                       {!isOwner && <td className="px-6 py-4 text-sm text-muted-foreground">{task.createdBy.name}</td>}
                       <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{new Date(task.dueAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}</span>
+                        <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{formatDateTime(task.dueAt)}</span>
                       </td>
                       <td className="px-6 py-4">{statusBadge(status)}</td>
                       <td className="px-6 py-4">

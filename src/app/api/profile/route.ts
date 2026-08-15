@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       where: { id: user.id },
       select: {
         id: true, name: true, email: true, role: true,
-        phone: true, wechat: true, avatar: true, bio: true,
+        phone: true, wechat: true, avatar: true, bio: true, timezone: true,
         canViewPortals: true,
         createdAt: true,
       },
@@ -36,13 +36,15 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json()
     const { name, phone, wechat, avatar, bio } = body
+    const data: Record<string, unknown> = { name, phone, wechat, avatar, bio }
+    if ('timezone' in body) data.timezone = body.timezone || null
 
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { name, phone, wechat, avatar, bio },
+      data,
       select: {
         id: true, name: true, email: true, role: true,
-        phone: true, wechat: true, avatar: true, bio: true,
+        phone: true, wechat: true, avatar: true, bio: true, timezone: true,
       },
     })
 

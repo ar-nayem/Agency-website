@@ -13,7 +13,7 @@ import { TransactionFormModal, CATEGORY_KEYS, PAYMENT_METHOD_KEYS, STATUS_KEYS }
 export default function StudentFinancePage() {
   const { id } = useParams()
   const studentId = id as string
-  const { t } = useLanguage()
+  const { t, formatDate } = useLanguage()
   const { data: session } = useSession()
   const role = session?.user?.role
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
@@ -136,7 +136,7 @@ export default function StudentFinancePage() {
               <tbody className="divide-y divide-border">
                 {transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-muted/60 transition-colors">
-                    <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(tx.transactionDate).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{formatDate(tx.transactionDate)}</td>
                     <td className="px-6 py-4 text-sm text-foreground">{t(`finance.${CATEGORY_KEYS[tx.category]}`)}</td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{tx.paymentMethod ? t(`finance.${PAYMENT_METHOD_KEYS[tx.paymentMethod]}`) : '-'}</td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{tx.createdBy?.name || '-'}</td>

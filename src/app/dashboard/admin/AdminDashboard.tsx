@@ -96,7 +96,7 @@ function StatusDonut({ slices, total }: { slices: DonutSlice[]; total: number })
 }
 
 export default function AdminDashboard({ stats, recentStudents, canExportBackup }: AdminDashboardProps) {
-  const { t } = useLanguage()
+  const { t, formatDate, formatDateTime } = useLanguage()
   const { data: session } = useSession()
   const isOwner = session?.user?.role === 'OWNER'
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -240,7 +240,7 @@ export default function AdminDashboard({ stats, recentStudents, canExportBackup 
                       <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
                       <p className={`text-xs mt-0.5 flex items-center gap-1 ${overdue ? 'text-rose-600 font-semibold' : 'text-muted-foreground'}`}>
                         <Clock className="w-3 h-3" />
-                        {overdue ? t('tasks.statusOverdue') + ' — ' : ''}{new Date(task.dueAt).toLocaleString()}
+                        {overdue ? t('tasks.statusOverdue') + ' — ' : ''}{formatDateTime(task.dueAt)}
                       </p>
                     </div>
                     <select
@@ -312,7 +312,7 @@ export default function AdminDashboard({ stats, recentStudents, canExportBackup 
                   <tbody className="divide-y divide-border">
                     {portalChanges.map((c) => (
                       <tr key={c.id} className="hover:bg-muted/60 transition-colors">
-                        <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{new Date(c.detectedAt).toLocaleString()}</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(c.detectedAt)}</td>
                         <td className="px-6 py-4 text-sm font-medium text-foreground">{c.passportName || c.passportNo || '-'}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{c.portal?.name}</td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">{c.field}</td>
@@ -421,7 +421,7 @@ export default function AdminDashboard({ stats, recentStudents, canExportBackup 
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">
-                      {new Date(student.createdAt).toLocaleDateString()}
+                      {formatDate(student.createdAt)}
                     </td>
                     <td className="px-6 py-4">
                       <Link href={`/dashboard/students/${student.id}`} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">

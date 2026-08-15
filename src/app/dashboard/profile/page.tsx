@@ -4,11 +4,23 @@ import { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import {
   ArrowLeft, Camera, Building2, User, Mail, Phone,
-  MessageCircle, Globe, MapPin, Save, Loader2, Upload, ImageIcon, Lock, X
+  MessageCircle, Globe, MapPin, Save, Loader2, Upload, ImageIcon, Lock, X, Clock
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+
+const TIMEZONES: string[] = (() => {
+  try {
+    return (Intl as any).supportedValuesOf('timeZone')
+  } catch {
+    return [
+      'UTC', 'Asia/Shanghai', 'Asia/Dhaka', 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore',
+      'Asia/Tokyo', 'Asia/Hong_Kong', 'Europe/London', 'Europe/Paris', 'Europe/Berlin',
+      'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Australia/Sydney',
+    ]
+  }
+})()
 
 interface ProfileData {
   id: string
@@ -36,7 +48,7 @@ interface OrgData {
 
 export default function ProfilePage() {
   const { data: session, update } = useSession()
-  const { t } = useLanguage()
+  const { t, timezone, setTimezone } = useLanguage()
   const [activeTab, setActiveTab] = useState<'profile' | 'organization'>('profile')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -377,6 +389,27 @@ export default function ProfilePage() {
                 className={inputClass}
                 placeholder={t('settings.bioPlaceholder')}
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelClass}>{t('settings.timezoneLabel')}</label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <input
+                  list="timezone-options"
+                  value={timezone}
+                  onChange={e => {
+                    if (TIMEZONES.includes(e.target.value)) {
+                      setTimezone(e.target.value)
+                      toast.success(t('settings.timezoneSaved'))
+                    }
+                  }}
+                  className={`${inputClass} pl-9`}
+                />
+                <datalist id="timezone-options">
+                  {TIMEZONES.map(tz => <option key={tz} value={tz} />)}
+                </datalist>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5">{t('settings.timezoneHint')}</p>
             </div>
           </div>
 

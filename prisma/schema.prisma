@@ -47,6 +47,7 @@ model User {
   wechat      String?
   avatar      String?
   bio         String?
+  timezone    String?
   canViewPortals Boolean @default(false)
   receiveAlerts  Boolean @default(false)
   canExportBackup Boolean @default(false)

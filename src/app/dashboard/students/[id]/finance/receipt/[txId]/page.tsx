@@ -15,7 +15,7 @@ export default function ReceiptPage() {
   const { id, txId } = useParams()
   const studentId = id as string
   const router = useRouter()
-  const { t, lang } = useLanguage()
+  const { t, formatDate } = useLanguage()
 
   const [tx, setTx] = useState<any>(null)
   const [org, setOrg] = useState<any>(null)
@@ -138,7 +138,7 @@ export default function ReceiptPage() {
           </div>
           <div className="text-right">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{t('finance.receiptDate')}</p>
-            <p className="font-semibold">{new Date(tx.transactionDate).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <p className="font-semibold">{formatDate(tx.transactionDate, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-3 mb-1">{t('finance.receiptIssuedBy')}</p>
             <p className="font-semibold">{creator?.name}</p>
           </div>

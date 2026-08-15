@@ -13,7 +13,7 @@ import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
 export default function AgentsPage() {
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, formatDate } = useLanguage()
   const router = useRouter()
   const [agents, setAgents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -545,7 +545,7 @@ export default function AgentsPage() {
                   </td>
                   <td className="px-6 py-4 text-sm text-muted-foreground">{user._count?.students || 0}</td>
                   <td className="px-6 py-4 text-sm text-muted-foreground">
-                    {new Date(user.createdAt).toLocaleDateString()}
+                    {formatDate(user.createdAt)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
