@@ -7,7 +7,9 @@ import { sendMail, taskOverdueTemplate } from '@/src/lib/email'
 export async function runOverdueCheck() {
   const now = new Date()
   const overdue = await prisma.task.findMany({
-    where: { status: 'PENDING', dueAt: { lt: now }, overdueNotifiedAt: null },
+    // Not just PENDING — a task an admin marked STARTED but never finished is
+    // still "not completed" once the deadline passes.
+    where: { status: { not: 'COMPLETED' }, dueAt: { lt: now }, overdueNotifiedAt: null },
     include: {
       assignedTo: { select: { name: true } },
       createdBy: { select: { name: true, email: true } },

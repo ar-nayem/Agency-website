@@ -6,7 +6,8 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import {
   Users, UserCheck,
-  TrendingUp, FileText, Eye, Globe, ChevronDown, ChevronUp, HardDriveDownload
+  TrendingUp, FileText, Eye, Globe, ChevronDown, ChevronUp, HardDriveDownload,
+  ListTodo, Clock
 } from 'lucide-react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
@@ -98,10 +99,42 @@ export default function AdminDashboard({ stats, recentStudents, canExportBackup 
   const { t } = useLanguage()
   const { data: session } = useSession()
   const isOwner = session?.user?.role === 'OWNER'
+  const isAdmin = session?.user?.role === 'ADMIN'
   const [portalChanges, setPortalChanges] = useState<any[]>([])
   const [portalChangesLoading, setPortalChangesLoading] = useState(true)
   const [hasPortalAccess, setHasPortalAccess] = useState(false)
   const [portalChangesCollapsed, setPortalChangesCollapsed] = useState(false)
+  const [myTasks, setMyTasks] = useState<any[]>([])
+  const [myTasksLoading, setMyTasksLoading] = useState(true)
+  const [taskBusyId, setTaskBusyId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAdmin) { setMyTasksLoading(false); return }
+    fetch('/api/tasks', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setMyTasks(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setMyTasksLoading(false))
+  }, [isAdmin])
+
+  async function updateMyTaskStatus(id: string, status: string) {
+    if (status === 'COMPLETED' && !confirm(t('tasks.markCompleteConfirm'))) return
+    setTaskBusyId(id)
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setMyTasks((prev) => prev.map((task) => (task.id === id ? updated : task)))
+      }
+    } finally {
+      setTaskBusyId(null)
+    }
+  }
 
   useEffect(() => {
     const stored = localStorage.getItem('portalStatusChangesCollapsed')
@@ -174,6 +207,59 @@ export default function AdminDashboard({ stats, recentStudents, canExportBackup 
           </a>
         )}
       </div>
+
+      {isAdmin && !myTasksLoading && (
+        <div className="rounded-2xl border-2 border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/60 dark:bg-indigo-500/10 shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-indigo-200 dark:border-indigo-500/30 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <div>
+                <h2 className="text-base font-semibold text-foreground">{t('tasks.myTasksTitle')}</h2>
+                <p className="text-xs text-muted-foreground">{t('tasks.myTasksHint')}</p>
+              </div>
+              {myTasks.filter((task) => task.status !== 'COMPLETED').length > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold">
+                  {myTasks.filter((task) => task.status !== 'COMPLETED').length}
+                </span>
+              )}
+            </div>
+            <Link href="/dashboard/tasks" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+              {t('tasks.viewAllTasks')}
+            </Link>
+          </div>
+
+          {myTasks.filter((task) => task.status !== 'COMPLETED').length === 0 ? (
+            <div className="px-6 py-8 text-center text-sm text-muted-foreground">{t('tasks.myTasksAllDone')}</div>
+          ) : (
+            <div className="divide-y divide-indigo-200/60 dark:divide-indigo-500/20">
+              {myTasks.filter((task) => task.status !== 'COMPLETED').slice(0, 5).map((task) => {
+                const overdue = new Date(task.dueAt) < new Date()
+                return (
+                  <div key={task.id} className="px-6 py-3.5 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                      <p className={`text-xs mt-0.5 flex items-center gap-1 ${overdue ? 'text-rose-600 font-semibold' : 'text-muted-foreground'}`}>
+                        <Clock className="w-3 h-3" />
+                        {overdue ? t('tasks.statusOverdue') + ' — ' : ''}{new Date(task.dueAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <select
+                      value={task.status}
+                      disabled={taskBusyId === task.id}
+                      onChange={(e) => updateMyTaskStatus(task.id, e.target.value)}
+                      className="text-xs border border-border rounded-lg px-2 py-1.5 bg-card focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 shrink-0"
+                    >
+                      <option value="PENDING">{t('tasks.statusPending')}</option>
+                      <option value="STARTED">{t('tasks.statusStarted')}</option>
+                      <option value="COMPLETED">{t('tasks.statusCompleted')}</option>
+                    </select>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {hasPortalAccess && (
         <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">

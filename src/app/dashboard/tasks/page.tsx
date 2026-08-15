@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Plus, Loader2, CheckCircle2, Trash2, Clock, X, ListTodo } from 'lucide-react'
+import { Plus, Loader2, Trash2, Clock, X, ListTodo } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
@@ -90,18 +90,20 @@ export default function TasksPage() {
     }
   }
 
-  async function markComplete(id: string) {
-    if (!confirm(t('tasks.markCompleteConfirm'))) return
+  async function updateStatus(id: string, status: string) {
+    if (status === 'COMPLETED') {
+      if (!confirm(t('tasks.markCompleteConfirm'))) return
+    }
     setBusyId(id)
     try {
       const res = await fetch(`/api/tasks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ status: 'COMPLETED' }),
+        body: JSON.stringify({ status }),
       })
       if (res.ok) {
-        toast.success(t('tasks.completed'))
+        toast.success(status === 'COMPLETED' ? t('tasks.completed') : t('tasks.statusUpdated'))
         fetchTasks()
       } else {
         const data = await res.json().catch(() => ({}))
@@ -132,18 +134,23 @@ export default function TasksPage() {
     }
   }
 
-  function effectiveStatus(task: TaskItem): 'PENDING' | 'COMPLETED' | 'OVERDUE' {
+  function effectiveStatus(task: TaskItem): 'PENDING' | 'STARTED' | 'COMPLETED' | 'OVERDUE' {
     if (task.status === 'COMPLETED') return 'COMPLETED'
-    return new Date(task.dueAt) < new Date() ? 'OVERDUE' : 'PENDING'
+    if (new Date(task.dueAt) < new Date()) return 'OVERDUE'
+    return task.status === 'STARTED' ? 'STARTED' : 'PENDING'
   }
 
-  function statusBadge(status: 'PENDING' | 'COMPLETED' | 'OVERDUE') {
+  function statusBadge(status: 'PENDING' | 'STARTED' | 'COMPLETED' | 'OVERDUE') {
     const cls = {
       PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
+      STARTED: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 border-indigo-200',
       COMPLETED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
       OVERDUE: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200',
     }[status]
-    const label = { PENDING: t('tasks.statusPending'), COMPLETED: t('tasks.statusCompleted'), OVERDUE: t('tasks.statusOverdue') }[status]
+    const label = {
+      PENDING: t('tasks.statusPending'), STARTED: t('tasks.statusStarted'),
+      COMPLETED: t('tasks.statusCompleted'), OVERDUE: t('tasks.statusOverdue'),
+    }[status]
     return <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${cls}`}>{label}</span>
   }
 
@@ -266,15 +273,17 @@ export default function TasksPage() {
                       <td className="px-6 py-4">{statusBadge(status)}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1">
-                          {!isOwner && task.status !== 'COMPLETED' && (
-                            <button
-                              onClick={() => markComplete(task.id)}
+                          {!isOwner && (
+                            <select
+                              value={task.status}
                               disabled={busyId === task.id}
-                              title={t('tasks.markComplete')}
-                              className="text-emerald-600 hover:text-emerald-700 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors inline-flex disabled:opacity-50"
+                              onChange={(e) => updateStatus(task.id, e.target.value)}
+                              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-muted/50 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
                             >
-                              <CheckCircle2 className="w-4 h-4" />
-                            </button>
+                              <option value="PENDING">{t('tasks.statusPending')}</option>
+                              <option value="STARTED">{t('tasks.statusStarted')}</option>
+                              <option value="COMPLETED">{t('tasks.statusCompleted')}</option>
+                            </select>
                           )}
                           {isOwner && (
                             <button

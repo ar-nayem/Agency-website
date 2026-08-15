@@ -4,6 +4,7 @@ import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
 import { sendMail, taskCompletedTemplate } from '@/src/lib/email'
+import { TASK_STATUSES } from '@/src/lib/tasks'
 import { logActivity } from '@/src/lib/activity'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -27,15 +28,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const data: Record<string, unknown> = {}
 
     if (user.role === 'ADMIN') {
-      // An assigned admin can only mark their own task complete — nothing else.
+      // An assigned admin can only move their own task between statuses —
+      // nothing else about the task (title, deadline, assignee) is theirs to change.
       if (existing.assignedToId !== user.id) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
-      if (body.status !== 'COMPLETED') {
-        return NextResponse.json({ error: 'Admins can only mark a task complete' }, { status: 400 })
+      if (!TASK_STATUSES.includes(body.status)) {
+        return NextResponse.json({ error: `status must be one of ${TASK_STATUSES.join(', ')}` }, { status: 400 })
       }
-      data.status = 'COMPLETED'
-      data.completedAt = new Date()
+      data.status = body.status
+      data.completedAt = body.status === 'COMPLETED' ? new Date() : null
     } else {
       // OWNER can edit the task itself (not mark it complete on someone else's behalf).
       if (typeof body.title === 'string') data.title = body.title
