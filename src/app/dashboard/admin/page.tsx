@@ -6,16 +6,25 @@ import AdminDashboard from './AdminDashboard'
 
 export default async function AdminPage() {
   const session = await getServerSession(authConfig) as any
-  
+
   if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'OWNER')) {
     redirect('/login')
   }
 
+  // session.user.organizationId is already the *active* org (the impersonated
+  // one, if a SUPER_DEVELOPER is impersonating — see auth.ts's session
+  // callback), so this is safe as-is. A bare SUPER_DEVELOPER never reaches
+  // this page (their role is 'SUPER_DEVELOPER', not 'ADMIN'/'OWNER', unless
+  // impersonating, in which case organizationId is the impersonated org's).
+  const organizationId = session.user.organizationId as string | null
+  if (!organizationId) redirect('/dashboard')
+
   const [agentsCount, studentsCount, pendingCount, recentStudents] = await Promise.all([
-    prisma.user.count({ where: { role: 'AGENT' } }),
-    prisma.student.count(),
-    prisma.student.count({ where: { status: 'PENDING' } }),
+    prisma.user.count({ where: { role: 'AGENT', organizationId } }),
+    prisma.student.count({ where: { organizationId } }),
+    prisma.student.count({ where: { organizationId, status: 'PENDING' } }),
     prisma.student.findMany({
+      where: { organizationId },
       take: 10,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -25,8 +34,8 @@ export default async function AdminPage() {
     })
   ])
 
-  const approvedCount = await prisma.student.count({ where: { status: 'APPROVED' } })
-  const rejectedCount = await prisma.student.count({ where: { status: 'REJECTED' } })
+  const approvedCount = await prisma.student.count({ where: { organizationId, status: 'APPROVED' } })
+  const rejectedCount = await prisma.student.count({ where: { organizationId, status: 'REJECTED' } })
 
   return (
     <AdminDashboard

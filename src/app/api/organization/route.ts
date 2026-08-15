@@ -20,10 +20,15 @@ export async function GET(req: NextRequest) {
 
     if (owner === 'true') {
       if (!user.organizationId) return NextResponse.json(null)
-      const org = await prisma.organizationProfile.findFirst({
+      const profile = await prisma.organizationProfile.findFirst({
         where: { organizationId: user.organizationId },
       })
-      return NextResponse.json(org)
+      if (profile) return NextResponse.json(profile)
+      // Brand-new org with no branding set yet — fall back to its own real
+      // name instead of the client's hardcoded placeholder default, so a
+      // freshly provisioned account never shows another org's name.
+      const org = await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { name: true } })
+      return NextResponse.json(org ? { name: org.name, logo: null } : null)
     }
 
     if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
