@@ -16,7 +16,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const university = await prisma.university.findUnique({
       where: { id },
       include: {
-        documents: { orderBy: { createdAt: 'desc' }, include: { uploadedBy: { select: { id: true, name: true } } } },
+        documents: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            uploadedBy: { select: { id: true, name: true } },
+            student: { select: { id: true, fullName: true, passportNo: true, serialNumber: true } },
+          },
+        },
       },
     })
     if (!university || !isSameOrg(user, university)) {

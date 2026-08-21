@@ -29,9 +29,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const formData = await req.formData()
     const file = formData.get('file') as File
     const category = (formData.get('category') as string) || 'OTHER'
+    const studentId = (formData.get('studentId') as string) || null
 
     if (!file) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 })
+    }
+
+    if (studentId) {
+      const student = await prisma.student.findUnique({ where: { id: studentId }, select: { organizationId: true } })
+      if (!student || !isSameOrg(user, student)) {
+        return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+      }
     }
 
     const bytes = await file.arrayBuffer()
@@ -53,6 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         size: file.size,
         category,
         universityId,
+        studentId,
         uploadedById: user.id,
         organizationId: orgId,
       },

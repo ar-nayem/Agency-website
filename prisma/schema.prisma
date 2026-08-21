@@ -155,6 +155,7 @@ model Student {
   messages         Message[]
   transactions     Transaction[]
   portalSnapshots  PortalStudentSnapshot[]
+  universityDocuments UniversityDocument[]
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
@@ -380,11 +381,20 @@ model UniversityDocument {
   uploadedById String
   uploadedBy   User   @relation("UniversityDocUploadedBy", fields: [uploadedById], references: [id])
 
+  // Optional — these are filed per-university, but each admission letter/JW
+  // is usually issued for one real student. Tagging it lets a search by
+  // student name or passport number find it without knowing which
+  // university's page it was filed under. SetNull (not Cascade): deleting
+  // the student record shouldn't delete the historical document.
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
   @@index([universityId])
+  @@index([studentId])
 }
 
 model UniversityPortal {

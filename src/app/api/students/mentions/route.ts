@@ -5,7 +5,8 @@ import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
 import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Lightweight lookup for @mention autocomplete in messages.
+// Lightweight lookup for @mention autocomplete in messages, and for tagging
+// a student onto a university document upload.
 // Agents only see their own students; admins/owner see everyone.
 export async function GET(req: NextRequest) {
   try {
@@ -21,12 +22,13 @@ export async function GET(req: NextRequest) {
       where.OR = [
         { serialNumber: { contains: q } },
         { fullName: { contains: q } },
+        { passportNo: { contains: q } },
       ]
     }
 
     const students = await prisma.student.findMany({
       where,
-      select: { id: true, fullName: true, serialNumber: true, status: true },
+      select: { id: true, fullName: true, serialNumber: true, status: true, passportNo: true },
       orderBy: { createdAt: 'desc' },
       take: 8,
     })
