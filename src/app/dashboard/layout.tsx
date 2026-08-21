@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
   ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone, Bell,
-  Building2, LogIn, ListTodo
+  Building2, LogIn, ListTodo, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -41,6 +41,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [exitingImpersonation, setExitingImpersonation] = useState(false)
+  // Desktop-only icon-rail mode. Persisted so it survives navigation/reload;
+  // read from localStorage after mount to avoid an SSR/client markup mismatch.
+  const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    setCollapsed(localStorage.getItem('sidebarCollapsed') === '1')
+  }, [])
+
+  function toggleCollapsed() {
+    setCollapsed(prev => {
+      const next = !prev
+      localStorage.setItem('sidebarCollapsed', next ? '1' : '0')
+      return next
+    })
+  }
 
   async function exitImpersonation() {
     setExitingImpersonation(true)
@@ -189,14 +204,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Sidebar */}
         <aside
-          className={`no-print w-64 bg-card border-r border-border fixed inset-y-0 left-0 z-40 flex flex-col shadow-sm transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+          className={`no-print w-64 ${collapsed ? 'lg:w-20' : 'lg:w-64'} bg-card border-r border-border fixed inset-y-0 left-0 z-40 flex flex-col shadow-sm transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
+          {/* Collapse toggle - desktop only */}
+          <button
+            onClick={toggleCollapsed}
+            title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+            className="hidden lg:flex items-center justify-center w-6 h-6 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors absolute -right-3 top-8 z-10 shadow-sm"
+          >
+            {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+          </button>
+
           {/* Company Logo - Owner's branding */}
-          <div className="p-5 border-b border-border shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <Link href="/dashboard" className="flex items-center gap-3 group min-w-0">
+          <div className={`p-5 border-b border-border shrink-0 ${collapsed ? 'lg:px-3' : ''}`}>
+            <div className={`flex items-center gap-2 ${collapsed ? 'lg:justify-center' : 'justify-between'}`}>
+              <Link href="/dashboard" className={`flex items-center gap-3 group min-w-0 ${collapsed ? 'lg:justify-center' : ''}`}>
                 {ownerOrg.logo ? (
                   <div className="w-10 h-10 rounded-xl overflow-hidden border border-border bg-card flex items-center justify-center shrink-0">
                     <img src={ownerOrg.logo} alt="Logo" className="w-full h-full object-contain p-0.5" />
@@ -206,7 +230,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <GraduationCap className="w-6 h-6 text-white" />
                   </div>
                 )}
-                <div className="min-w-0">
+                <div className={`min-w-0 ${collapsed ? 'lg:hidden' : ''}`}>
                   <h1 className="font-bold text-foreground text-lg tracking-tight truncate">{ownerOrg.name}</h1>
                   <p className="text-[11px] text-muted-foreground font-medium tracking-wider uppercase">{t('nav.studentPortal')}</p>
                 </div>
@@ -218,8 +242,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="mt-3 flex items-center gap-2">
-              <LanguageToggle className="flex-1 justify-center" />
+            <div className={`mt-3 flex items-center gap-2 ${collapsed ? 'lg:flex-col' : ''}`}>
+              <LanguageToggle className={`flex-1 justify-center ${collapsed ? 'lg:hidden' : ''}`} />
+              <LanguageToggle iconOnly className={collapsed ? 'hidden lg:flex' : 'hidden'} />
               <ThemeToggle />
             </div>
           </div>
@@ -233,14 +258,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  title={collapsed ? item.label : undefined}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${collapsed ? 'lg:justify-center' : ''} ${
                     isActive
                       ? 'bg-primary/10 text-primary shadow-sm'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                 >
-                  <item.icon className={`w-[18px] h-[18px] ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                  {item.label}
+                  <item.icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className={collapsed ? 'lg:hidden' : ''}>{item.label}</span>
                 </Link>
               )
             })}
@@ -248,7 +274,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* User section - avatar + name */}
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-border shrink-0">
-            <div className="flex items-center gap-3 mb-3 px-3">
+            <div className={`flex items-center gap-3 mb-3 px-3 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
               {(myAvatar || userOrg.logo) ? (
                 <div className="w-10 h-10 rounded-xl overflow-hidden border border-border bg-card flex items-center justify-center shrink-0">
                   <img src={myAvatar || userOrg.logo || ''} alt="Avatar" className={`w-full h-full ${myAvatar ? 'object-cover' : 'object-contain p-0.5'}`} />
@@ -258,12 +284,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {(myProfile?.name || session?.user?.name)?.charAt(0).toUpperCase() || 'U'}
                 </div>
               )}
-              <div className="min-w-0">
+              <div className={`min-w-0 ${collapsed ? 'lg:hidden' : ''}`}>
                 <p className="text-sm font-semibold text-foreground truncate">{myProfile?.name || session?.user?.name}</p>
                 <p className="text-xs text-muted-foreground truncate">{myProfile?.email || session?.user?.email}</p>
               </div>
             </div>
-            <div className="px-3 mb-3">
+            <div className={`px-3 mb-3 ${collapsed ? 'lg:hidden' : ''}`}>
               <span className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${
                 isSuperDeveloper ? 'bg-slate-800 text-slate-100 dark:bg-slate-200 dark:text-slate-900' :
                 role === 'OWNER' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400' :
@@ -275,16 +301,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
-              className="flex items-center gap-3 px-3 py-2.5 w-full text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground rounded-xl transition-all duration-200"
+              title={collapsed ? t('nav.signOut') : undefined}
+              className={`flex items-center gap-3 px-3 py-2.5 w-full text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground rounded-xl transition-all duration-200 ${collapsed ? 'lg:justify-center' : ''}`}
             >
-              <LogOut className="w-[18px] h-[18px]" />
-              {t('nav.signOut')}
+              <LogOut className="w-[18px] h-[18px] shrink-0" />
+              <span className={collapsed ? 'lg:hidden' : ''}>{t('nav.signOut')}</span>
             </button>
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="print:m-0 print:p-0 flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 min-w-0">
+        <main className={`print:m-0 print:p-0 flex-1 ${collapsed ? 'lg:ml-20' : 'lg:ml-64'} p-4 sm:p-6 lg:p-8 min-w-0 transition-all duration-200`}>
           {children}
         </main>
       </div>

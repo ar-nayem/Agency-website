@@ -15,6 +15,8 @@ export const en = {
   messages: 'Messages',
   settings: 'Settings',
   signOut: 'Sign Out',
+  collapseSidebar: 'Collapse sidebar',
+  expandSidebar: 'Expand sidebar',
 }
 
 export const zh = {
@@ -34,4 +36,6 @@ export const zh = {
   messages: '消息',
   settings: '设置',
   signOut: '退出登录',
+  collapseSidebar: '收起侧边栏',
+  expandSidebar: '展开侧边栏',
 }

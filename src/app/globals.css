@@ -68,10 +68,29 @@
   border-color: hsl(var(--border));
 }
 
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
   transition: background-color 150ms ease, color 150ms ease;
+}
+
+/* Form controls don't inherit the theme background on their own — without
+   this, dark mode leaves every input its browser-default white box, which
+   combined with `color: inherit` (light text from body) makes typed text
+   unreadable. Skip checkbox/radio/range/file: background-color on native
+   ones just recolors the widget itself, not a text field. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+textarea,
+select {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
 @layer utilities {
