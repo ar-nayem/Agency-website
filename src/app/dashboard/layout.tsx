@@ -117,6 +117,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
     { label: t('nav.tasks'), href: '/dashboard/tasks', icon: ListTodo },
     { label: 'Offers', href: '/dashboard/offers', icon: Megaphone },
+    { label: t('nav.universities'), href: '/dashboard/universities', icon: GraduationCap },
   ] : [
     { label: t('nav.dashboard'), href: '/dashboard/agent', icon: LayoutDashboard },
     { label: t('nav.myStudents'), href: '/dashboard/students', icon: Users },

@@ -34,6 +34,8 @@ model Organization {
   activityLogs         ActivityLog[]
   organizationProfiles OrganizationProfile[]
   tasks                Task[]
+  universities         University[]
+  universityDocuments  UniversityDocument[]
 }
 
 model User {
@@ -72,6 +74,8 @@ model User {
 
   students        Student[]
   uploadedDocs    Document[]      @relation("UploadedBy")
+  uploadedUniversityDocs UniversityDocument[] @relation("UniversityDocUploadedBy")
+  createdUniversities    University[]
   activityLogs    ActivityLog[]
   sentMessages    Message[]       @relation("SentBy")
   receivedMessages Message[]      @relation("ReceivedBy")
@@ -335,6 +339,52 @@ model Transaction {
   @@index([agentId])
   @@index([studentId])
   @@index([organizationId])
+}
+
+// A catalog of partner universities — distinct from UniversityPortal (which
+// holds login credentials for scraping an external application portal).
+// This is admin/owner-only reference filing: per-university admission
+// letters and JW forms actually issued, archived independent of any one
+// student.
+model University {
+  id        String   @id @default(uuid())
+  name      String
+  country   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  documents UniversityDocument[]
+
+  @@index([organizationId])
+}
+
+model UniversityDocument {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  category     String   @default("OTHER") // ADMISSION_LETTER | JW | OTHER
+  createdAt    DateTime @default(now())
+
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User   @relation("UniversityDocUploadedBy", fields: [uploadedById], references: [id])
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([universityId])
 }
 
 model UniversityPortal {
