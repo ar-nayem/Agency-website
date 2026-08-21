@@ -129,6 +129,7 @@ export default function UniversityDetailPage() {
   const [pending, setPending] = useState<PendingFile[]>([])
   const [batchCategory, setBatchCategory] = useState<string | null>(null)
   const [uploadingBatch, setUploadingBatch] = useState(false)
+  const [manualTagDocId, setManualTagDocId] = useState<string | null>(null)
 
   useEffect(() => {
     if (session && !isAdmin) {
@@ -175,6 +176,26 @@ export default function UniversityDetailPage() {
       })
       if (res.ok) fetchUniversity()
       else toast.error(t('universities.failedUpdate'))
+    } catch {
+      toast.error(t('universities.failedUpdate'))
+    }
+  }
+
+  async function manualTag(docId: string, student: StudentTag) {
+    try {
+      const res = await fetch(`/api/universities/${id}/documents/${docId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ studentId: student.id }),
+      })
+      if (res.ok) {
+        toast.success(t('universities.suggestionAccepted'))
+        setManualTagDocId(null)
+        fetchUniversity()
+      } else {
+        toast.error(t('universities.failedUpdate'))
+      }
     } catch {
       toast.error(t('universities.failedUpdate'))
     }
@@ -418,6 +439,23 @@ export default function UniversityDetailPage() {
                               </button>
                             </div>
                           </div>
+                        )}
+                        {!doc.student && doc.ocrStatus !== 'PENDING' && doc.ocrStatus !== 'SUGGESTED' && (
+                          manualTagDocId === doc.id ? (
+                            <div className="w-full mt-0.5">
+                              <StudentPicker value={null} onChange={s => s && manualTag(doc.id, s)} />
+                              <button onClick={() => setManualTagDocId(null)} className="text-[10px] text-muted-foreground hover:text-foreground mt-0.5">
+                                {t('common.cancel')}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setManualTagDocId(doc.id)}
+                              className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline mt-0.5"
+                            >
+                              {t('universities.tagStudent')}
+                            </button>
+                          )
                         )}
                         <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toISOString().split('T')[0]}</p>
                         <p className="text-[10px] text-muted-foreground truncate w-full text-center" title={doc.uploadedBy.name}>{doc.uploadedBy.name}</p>
