@@ -37,6 +37,8 @@ export const en = {
   docHowItWorks1: 'Agents will see these categories when uploading documents for students',
   docHowItWorks2: 'Toggle "Required" to make a document mandatory before submission',
   docHowItWorks3: 'Changes apply immediately to new uploads — existing documents are not affected',
+  officialDocument: 'Official',
+  officialDocumentHint: 'Only the owner and admins the owner has explicitly permitted can upload, view, or delete this category (e.g. admission letters, JW, pre-admission letters). Agents can always upload it for their own students.',
 
   // Field requirements page
   fieldRequirementsSubtitle: 'Configure which student information fields are required',
@@ -168,6 +170,8 @@ export const zh = {
   docHowItWorks1: '代理在为学生上传文件时会看到这些分类',
   docHowItWorks2: '开启"必填"开关，可将该文件设为提交前必须上传',
   docHowItWorks3: '更改将立即应用于新上传的文件，已上传的文件不受影响',
+  officialDocument: '重要文件',
+  officialDocumentHint: '仅所有者及被所有者明确授权的管理员可上传、查看或删除此类文件（如录取通知书、JW表、预录取通知书）。代理始终可为自己的学生上传此类文件。',
 
   // Field requirements page
   fieldRequirementsSubtitle: '配置学生信息表单中哪些字段为必填项',

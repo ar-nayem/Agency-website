@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Plus, Trash2, FileText, ToggleLeft, ToggleRight, Loader2
+  ArrowLeft, Plus, Trash2, FileText, ToggleLeft, ToggleRight, Loader2, ShieldCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -19,6 +19,7 @@ interface DocRequirement {
   type: string
   maxSize: string | null
   isRequired: boolean
+  isOfficial: boolean
   sortOrder: number
   active: boolean
 }
@@ -39,6 +40,7 @@ export default function DocumentRequirementsPage() {
     type: 'PDF',
     maxSize: '10MB',
     isRequired: false,
+    isOfficial: false,
     sortOrder: 0,
   })
 
@@ -81,7 +83,7 @@ export default function DocumentRequirementsPage() {
       if (res.ok) {
         toast.success(t('settings.docCreatedToast'))
         setShowAdd(false)
-        setForm({ key: '', label: '', description: '', accept: '.pdf,image/*', type: 'PDF', maxSize: '10MB', isRequired: false, sortOrder: 0 })
+        setForm({ key: '', label: '', description: '', accept: '.pdf,image/*', type: 'PDF', maxSize: '10MB', isRequired: false, isOfficial: false, sortOrder: 0 })
         fetchRequirements()
       } else {
         const err = await res.json()
@@ -214,7 +216,19 @@ export default function DocumentRequirementsPage() {
                 />
                 <span className="text-sm text-foreground">{t('common.required')}</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.isOfficial}
+                  onChange={e => setForm({...form, isOfficial: e.target.checked})}
+                  className="w-4 h-4 rounded text-indigo-600"
+                />
+                <span className="text-sm text-foreground">{t('settings.officialDocument')}</span>
+              </label>
             </div>
+            {form.isOfficial && (
+              <p className="md:col-span-3 text-xs text-muted-foreground -mt-2">{t('settings.officialDocumentHint')}</p>
+            )}
           </div>
           <div className="flex justify-end gap-2 mt-4">
             <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-border rounded-xl text-sm text-foreground hover:bg-muted">
@@ -246,6 +260,7 @@ export default function DocumentRequirementsPage() {
                 <th className="text-left px-6 py-3 font-medium text-foreground text-xs uppercase tracking-wider">{t('settings.typeLabel')}</th>
                 <th className="text-left px-6 py-3 font-medium text-foreground text-xs uppercase tracking-wider">{t('settings.maxSizeLabel')}</th>
                 <th className="text-center px-6 py-3 font-medium text-foreground text-xs uppercase tracking-wider">{t('common.required')}</th>
+                <th className="text-center px-6 py-3 font-medium text-foreground text-xs uppercase tracking-wider">{t('settings.officialDocument')}</th>
                 <th className="text-right px-6 py-3 font-medium text-foreground text-xs uppercase tracking-wider">{t('common.actions')}</th>
               </tr>
             </thead>
@@ -277,6 +292,19 @@ export default function DocumentRequirementsPage() {
                         <ToggleRight className="w-6 h-6 text-indigo-600" />
                       ) : (
                         <ToggleLeft className="w-6 h-6 text-muted-foreground" />
+                      )}
+                    </button>
+                  </td>
+                  <td className="px-6 py-3 text-center">
+                    <button
+                      onClick={() => updateRequirement(req.id, { isOfficial: !req.isOfficial })}
+                      className="inline-flex"
+                      title={t('settings.officialDocumentHint')}
+                    >
+                      {req.isOfficial ? (
+                        <ShieldCheck className="w-5 h-5 text-amber-600" />
+                      ) : (
+                        <ShieldCheck className="w-5 h-5 text-muted-foreground opacity-40" />
                       )}
                     </button>
                   </td>

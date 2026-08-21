@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
         canViewPortals: true,
         receiveAlerts: true,
         canExportBackup: true,
+        canManageOfficialDocuments: true,
         _count: {
           select: { students: true }
         }

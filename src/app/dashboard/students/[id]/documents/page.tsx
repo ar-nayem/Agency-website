@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Upload, FileText, Trash2, Loader2, Video, FileImage } from 'lucide-react'
+import { ArrowLeft, Upload, FileText, Trash2, Loader2, Video, FileImage, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
@@ -16,6 +16,8 @@ interface DocCategory {
   type: string
   maxSize?: string
   isRequired: boolean
+  isOfficial: boolean
+  locked: boolean
 }
 
 export default function DocumentsPage() {
@@ -60,6 +62,11 @@ export default function DocumentsPage() {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>, category: DocCategory) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (category.locked) {
+      toast.error(t('students.officialDocLocked'))
+      e.target.value = ''
+      return
+    }
 
     setUploadingCategory(category.key)
     const formData = new FormData()
@@ -139,13 +146,20 @@ export default function DocumentsPage() {
           return (
             <div key={cat.key} className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
               {/* Category Header */}
-              <div className="bg-muted px-5 py-3 border-b border-border">
-                <h3 className="font-semibold text-foreground">
-                  {cat.label}
-                  {cat.isRequired && <span className="text-red-500 ml-1">*</span>}
-                </h3>
-                {cat.description && (
-                  <p className="text-xs text-muted-foreground mt-1">{cat.description}</p>
+              <div className="bg-muted px-5 py-3 border-b border-border flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-foreground">
+                    {cat.label}
+                    {cat.isRequired && <span className="text-red-500 ml-1">*</span>}
+                  </h3>
+                  {cat.description && (
+                    <p className="text-xs text-muted-foreground mt-1">{cat.description}</p>
+                  )}
+                </div>
+                {cat.locked && (
+                  <span className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                    <Lock className="w-3 h-3" /> {t('students.officialDoc')}
+                  </span>
                 )}
               </div>
 
@@ -175,17 +189,31 @@ export default function DocumentsPage() {
                             <a href={`/api/documents/${doc.id}/file`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">{t('common.view')}</a>
                           )}
                           <a href={`/api/documents/${doc.id}/file?download=${encodeURIComponent(niceName)}`} download={niceName} className="text-xs text-blue-600 hover:underline">{t('common.download')}</a>
-                          <button onClick={() => deleteDocument(doc.id)} className="text-xs text-red-500 hover:underline">{t('common.delete')}</button>
+                          {!cat.locked && (
+                            <button onClick={() => deleteDocument(doc.id)} className="text-xs text-red-500 hover:underline">{t('common.delete')}</button>
+                          )}
                         </div>
                       </div>
                       )
                     })}
                     {/* Add more button */}
-                    <label className="w-28 h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted transition">
-                      <Upload className="w-6 h-6 text-muted-foreground mb-1" />
-                      <span className="text-xs text-muted-foreground">{t('students.addMore')}</span>
-                      <input type="file" accept={cat.accept} className="hidden" onChange={(e) => handleUpload(e, cat)} />
-                    </label>
+                    {cat.locked ? (
+                      <div className="w-28 h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center opacity-50 cursor-not-allowed">
+                        <Lock className="w-6 h-6 text-muted-foreground mb-1" />
+                        <span className="text-xs text-muted-foreground text-center px-2">{t('students.officialDocLocked')}</span>
+                      </div>
+                    ) : (
+                      <label className="w-28 h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted transition">
+                        <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                        <span className="text-xs text-muted-foreground">{t('students.addMore')}</span>
+                        <input type="file" accept={cat.accept} className="hidden" onChange={(e) => handleUpload(e, cat)} />
+                      </label>
+                    )}
+                  </div>
+                ) : cat.locked ? (
+                  <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg opacity-60">
+                    <Lock className="w-8 h-8 text-muted-foreground mb-2" />
+                    <span className="text-sm text-muted-foreground">{t('students.officialDocLocked')}</span>
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted transition">

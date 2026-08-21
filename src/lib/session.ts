@@ -77,3 +77,16 @@ export async function canAccessPortals(user: { id: string; role: string } | null
   const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { canViewPortals: true } })
   return !!dbUser?.canViewPortals
 }
+
+// Official documents (admission letters, JW, pre-admission letters, etc.) are
+// sensitive enough that the owner decides which admins may touch them.
+// Agents and owners always can; a plain admin needs the explicit grant —
+// same live-DB-read pattern as canAccessPortals, since the JWT only carries
+// role at login time and this flag can change mid-session.
+export async function canManageOfficialDocs(user: { id: string; role: string } | null): Promise<boolean> {
+  if (!user) return false
+  if (user.role === 'OWNER' || user.role === 'AGENT') return true
+  if (user.role !== 'ADMIN') return false
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { canManageOfficialDocuments: true } })
+  return !!dbUser?.canManageOfficialDocuments
+}

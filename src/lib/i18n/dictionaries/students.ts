@@ -35,6 +35,8 @@ export const en = {
   addMore: 'Add More',
   clickToUpload: 'Click to upload',
   maxSize: 'Max size',
+  officialDoc: 'Official',
+  officialDocLocked: 'You don\'t have permission to manage this official document. Ask the owner to grant access.',
 
   // Toasts
   failedLoadStudents: 'Failed to load students',
@@ -89,6 +91,8 @@ export const zh = {
   addMore: '继续添加',
   clickToUpload: '点击上传',
   maxSize: '最大体积',
+  officialDoc: '重要文件',
+  officialDocLocked: '您没有管理此重要文件的权限，请联系所有者开通权限。',
 
   failedLoadStudents: '加载学生列表失败',
   exportDownloaded: '导出成功',

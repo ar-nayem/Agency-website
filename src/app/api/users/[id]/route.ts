@@ -48,6 +48,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data.canExportBackup = body.canExportBackup
     }
 
+    if (typeof body.canManageOfficialDocuments === 'boolean') {
+      if (user.role !== 'OWNER') {
+        return NextResponse.json({ error: 'Only the owner can grant official document access' }, { status: 403 })
+      }
+      data.canManageOfficialDocuments = body.canManageOfficialDocuments
+    }
+
     if ('managedByAdminId' in body) {
       if (user.role !== 'OWNER') {
         return NextResponse.json({ error: 'Only the owner can assign agents to admins' }, { status: 403 })
@@ -86,6 +93,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         canViewPortals: true,
         receiveAlerts: true,
         canExportBackup: true,
+        canManageOfficialDocuments: true,
       }
     })
     return NextResponse.json(updated)

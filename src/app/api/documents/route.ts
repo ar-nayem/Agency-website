@@ -4,7 +4,7 @@ import { writeFile } from 'fs/promises'
 import { mkdir } from 'fs/promises'
 import { join } from 'path'
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole, canManageOfficialDocs } from '@/src/lib/session'
 import { isSameOrg, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
@@ -38,6 +38,11 @@ export async function POST(req: NextRequest) {
 
     if (!isAdminRole(user.role) && student.agentId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const requirement = await prisma.documentRequirement.findFirst({ where: { organizationId: orgId, key: category } })
+    if (requirement?.isOfficial && !(await canManageOfficialDocs(user))) {
+      return NextResponse.json({ error: 'Only the owner or a permitted admin can upload official documents' }, { status: 403 })
     }
 
     const bytes = await file.arrayBuffer()

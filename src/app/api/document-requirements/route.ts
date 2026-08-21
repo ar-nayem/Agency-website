@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, canManageOfficialDocs } from '@/src/lib/session'
 import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -14,7 +14,12 @@ export async function GET(req: NextRequest) {
       where: { active: true, ...orgWhere(user) },
       orderBy: { sortOrder: 'asc' },
     })
-    return NextResponse.json(reqs)
+
+    // Resolve once per request rather than per category — the underlying
+    // permission can't change between rows of the same response.
+    const officialAccess = reqs.some(r => r.isOfficial) ? await canManageOfficialDocs(user) : true
+    const withAccess = reqs.map(r => ({ ...r, locked: r.isOfficial && !officialAccess }))
+    return NextResponse.json(withAccess)
   } catch {
     return NextResponse.json({ error: 'Failed to fetch requirements' }, { status: 500 })
   }
@@ -40,6 +45,7 @@ export async function POST(req: NextRequest) {
         type: body.type || 'PDF',
         maxSize: body.maxSize,
         isRequired: body.isRequired || false,
+        isOfficial: body.isOfficial || false,
         sortOrder: body.sortOrder || 0,
         organizationId: orgId,
       },

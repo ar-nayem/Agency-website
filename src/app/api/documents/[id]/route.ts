@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole, canManageOfficialDocs } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
@@ -27,6 +27,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (!isAdminRole(user.role) && doc.student.agentId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const requirement = await prisma.documentRequirement.findFirst({ where: { organizationId: doc.organizationId, key: doc.category } })
+    if (requirement?.isOfficial && !(await canManageOfficialDocs(user))) {
+      return NextResponse.json({ error: 'Only the owner or a permitted admin can delete official documents' }, { status: 403 })
     }
 
     try {
