@@ -23,6 +23,9 @@ interface UniversityDoc {
   createdAt: string
   uploadedBy: { id: string; name: string }
   student: StudentTag | null
+  ocrStatus: string
+  suggestedStudent: StudentTag | null
+  suggestedMatchReason: string | null
 }
 
 interface UniversityDetail {
@@ -134,6 +137,48 @@ export default function UniversityDetailPage() {
     }
     if (session) fetchUniversity()
   }, [id, session])
+
+  // Background text-detection runs after upload — poll while anything is
+  // still PENDING so a suggestion shows up without a manual refresh.
+  useEffect(() => {
+    if (!data?.documents.some(d => d.ocrStatus === 'PENDING')) return
+    const interval = setInterval(fetchUniversity, 4000)
+    return () => clearInterval(interval)
+  }, [data])
+
+  async function acceptSuggestion(docId: string) {
+    try {
+      const res = await fetch(`/api/universities/${id}/documents/${docId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ acceptSuggestion: true }),
+      })
+      if (res.ok) {
+        toast.success(t('universities.suggestionAccepted'))
+        fetchUniversity()
+      } else {
+        toast.error(t('universities.failedUpdate'))
+      }
+    } catch {
+      toast.error(t('universities.failedUpdate'))
+    }
+  }
+
+  async function dismissSuggestion(docId: string) {
+    try {
+      const res = await fetch(`/api/universities/${id}/documents/${docId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ dismissSuggestion: true }),
+      })
+      if (res.ok) fetchUniversity()
+      else toast.error(t('universities.failedUpdate'))
+    } catch {
+      toast.error(t('universities.failedUpdate'))
+    }
+  }
 
   async function fetchUniversity() {
     try {
@@ -353,6 +398,26 @@ export default function UniversityDetailPage() {
                           <p className="text-[10px] text-indigo-600 dark:text-indigo-400 truncate w-full text-center" title={`${doc.student.fullName} · ${doc.student.passportNo}`}>
                             {doc.student.fullName}
                           </p>
+                        )}
+                        {doc.ocrStatus === 'PENDING' && (
+                          <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" /> {t('universities.detecting')}
+                          </p>
+                        )}
+                        {doc.ocrStatus === 'SUGGESTED' && doc.suggestedStudent && (
+                          <div className="mt-0.5 px-1.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 w-full text-center">
+                            <p className="text-[10px] text-amber-700 dark:text-amber-400 truncate" title={`${doc.suggestedStudent.fullName} · ${doc.suggestedStudent.passportNo}`}>
+                              {doc.suggestedStudent.fullName}?
+                            </p>
+                            <div className="flex items-center justify-center gap-2 mt-0.5">
+                              <button onClick={() => acceptSuggestion(doc.id)} title={t('universities.acceptSuggestion')} className="text-emerald-600 hover:text-emerald-700">
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button onClick={() => dismissSuggestion(doc.id)} title={t('universities.dismissSuggestion')} className="text-rose-500 hover:text-rose-600">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
                         )}
                         <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toISOString().split('T')[0]}</p>
                         <p className="text-[10px] text-muted-foreground truncate w-full text-center" title={doc.uploadedBy.name}>{doc.uploadedBy.name}</p>

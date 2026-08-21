@@ -156,6 +156,7 @@ model Student {
   transactions     Transaction[]
   portalSnapshots  PortalStudentSnapshot[]
   universityDocuments UniversityDocument[]
+  suggestedUniversityDocuments UniversityDocument[] @relation("UniversityDocSuggestedStudent")
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
@@ -389,12 +390,24 @@ model UniversityDocument {
   studentId String?
   student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
 
+  // Background text-detection result for documents uploaded without a manual
+  // student tag: PENDING while running, SUGGESTED once a confident candidate
+  // is found (needs a human click to accept — never auto-applied), NO_MATCH,
+  // UNSUPPORTED (no extractable text — e.g. a scanned image-only PDF with no
+  // rasterization pipeline), FAILED, or SKIPPED (a student was already
+  // tagged manually at upload, so detection never ran).
+  ocrStatus            String   @default("SKIPPED")
+  suggestedStudentId   String?
+  suggestedStudent     Student? @relation("UniversityDocSuggestedStudent", fields: [suggestedStudentId], references: [id], onDelete: SetNull)
+  suggestedMatchReason String? // "passport" | "name"
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
   @@index([universityId])
   @@index([studentId])
+  @@index([suggestedStudentId])
 }
 
 model UniversityPortal {

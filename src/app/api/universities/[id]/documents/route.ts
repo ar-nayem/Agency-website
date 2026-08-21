@@ -7,6 +7,7 @@ import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
 import { isSameOrg, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
+import { enqueueOcr } from '@/src/lib/universityDocOcr'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -64,10 +65,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         studentId,
         uploadedById: user.id,
         organizationId: orgId,
+        ocrStatus: studentId ? 'SKIPPED' : 'PENDING',
       },
     })
 
     await logActivity(user.id, 'UNIVERSITY_DOCUMENT_UPLOADED', `${file.name} → ${university.name}`)
+
+    // Fire-and-forget: runs after the response goes out, doesn't block the
+    // upload. Only when nobody already tagged a student for this file.
+    if (!studentId) enqueueOcr(doc.id)
 
     return NextResponse.json(doc, { status: 201 })
   } catch (error) {

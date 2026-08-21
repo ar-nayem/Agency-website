@@ -54,6 +54,37 @@ export async function GET(req: NextRequest) {
       students = students.filter((s) => categorizeAdmitStatus(s.admitStatus, s.portalId) === category)
     }
 
+    // Document coverage (admission letter / JW on file) only exists for
+    // rows already matched to an internal Student — computed here as one
+    // grouped query rather than per-row, since this list runs to hundreds
+    // of rows at once.
+    const matchedIds = Array.from(new Set(students.map(s => s.matchedStudentId).filter((id): id is string => !!id)))
+    if (matchedIds.length > 0) {
+      const counts = await prisma.universityDocument.groupBy({
+        by: ['studentId', 'category'],
+        where: { studentId: { in: matchedIds }, category: { in: ['ADMISSION_LETTER', 'JW'] } },
+        _count: true,
+      })
+      const coverage = new Map<string, { admissionLetter: boolean; jw: boolean }>()
+      for (const c of counts) {
+        if (!c.studentId) continue
+        const entry = coverage.get(c.studentId) || { admissionLetter: false, jw: false }
+        if (c.category === 'ADMISSION_LETTER') entry.admissionLetter = true
+        if (c.category === 'JW') entry.jw = true
+        coverage.set(c.studentId, entry)
+      }
+      students = students.map(s => {
+        if (!s.matchedStudent) return s
+        return {
+          ...s,
+          matchedStudent: {
+            ...s.matchedStudent,
+            documentCoverage: coverage.get(s.matchedStudent.id) || { admissionLetter: false, jw: false },
+          },
+        }
+      }) as typeof students
+    }
+
     return NextResponse.json(students)
   } catch (error) {
     console.error('GET /api/portals/students error:', error)

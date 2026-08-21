@@ -42,6 +42,13 @@ export const en = {
   searchDocumentsHint: 'Search across every university by student name or passport number',
   searchDocumentsPlaceholder: 'Student name or passport number...',
   noDocumentResults: 'No matching documents',
+  detecting: 'Detecting...',
+  acceptSuggestion: 'Yes, tag this student',
+  dismissSuggestion: 'Not this student',
+  suggestionAccepted: 'Student tagged',
+  coverageAdmission: 'AL',
+  coverageJw: 'JW',
+  coverageNotMatched: 'Not matched to internal student yet',
 }
 
 export const zh = {
@@ -88,4 +95,11 @@ export const zh = {
   searchDocumentsHint: '按学生姓名或护照号在所有院校中搜索',
   searchDocumentsPlaceholder: '学生姓名或护照号...',
   noDocumentResults: '未找到匹配的文件',
+  detecting: '识别中...',
+  acceptSuggestion: '是的，关联此学生',
+  dismissSuggestion: '不是此学生',
+  suggestionAccepted: '已关联学生',
+  coverageAdmission: '录取书',
+  coverageJw: 'JW',
+  coverageNotMatched: '尚未关联内部学生档案',
 }

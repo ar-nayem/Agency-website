@@ -21,6 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           include: {
             uploadedBy: { select: { id: true, name: true } },
             student: { select: { id: true, fullName: true, passportNo: true, serialNumber: true } },
+            suggestedStudent: { select: { id: true, fullName: true, passportNo: true, serialNumber: true } },
           },
         },
       },

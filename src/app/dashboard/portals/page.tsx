@@ -607,15 +607,16 @@ export default function PortalsPage() {
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.status')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.lastSeen')}</th>
                     <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('portals.matchedStudent')}</th>
+                    <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('universities.title')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {studentsLoading ? (
-                    <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
+                    <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('common.loading')}</td></tr>
                   ) : !hasSearched ? (
-                    <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.chooseFiltersPrompt')}</td></tr>
+                    <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.chooseFiltersPrompt')}</td></tr>
                   ) : filteredStudents.length === 0 ? (
-                    <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
+                    <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground text-sm">{t('portals.noStudentsYet')}</td></tr>
                   ) : (
                     filteredStudents.map((s) => (
                       <tr key={s.id} className="hover:bg-muted/60 transition-colors">
@@ -635,6 +636,34 @@ export default function PortalsPage() {
                             <span className="text-indigo-600">{s.matchedStudent.fullName}</span>
                           ) : (
                             <span className="text-muted-foreground text-xs">{t('portals.notMatched')}</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {s.matchedStudent?.documentCoverage ? (
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                title={t('universities.admissionLetters')}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                  s.matchedStudent.documentCoverage.admissionLetter
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                {t('universities.coverageAdmission')}
+                              </span>
+                              <span
+                                title={t('universities.jw')}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                  s.matchedStudent.documentCoverage.jw
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                {t('universities.coverageJw')}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs" title={t('universities.coverageNotMatched')}>—</span>
                           )}
                         </td>
                       </tr>
