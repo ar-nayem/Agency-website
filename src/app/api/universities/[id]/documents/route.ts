@@ -7,7 +7,7 @@ import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
 import { isSameOrg, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
-import { enqueueOcr } from '@/src/lib/universityDocOcr'
+import { matchByFilename } from '@/src/lib/universityDocMatch'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -54,6 +54,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const filepath = join(uploadDir, filename)
     await writeFile(filepath, buffer)
 
+    // Filename-based detection only runs when nobody already tagged a
+    // student — cheap enough (one query, plain string matching) to do
+    // inline, no background job needed.
+    let ocrStatus = 'SKIPPED'
+    let suggestedStudentId: string | null = null
+    let suggestedMatchReason: string | null = null
+    if (!studentId) {
+      const match = await matchByFilename(file.name, orgId)
+      if (match) {
+        ocrStatus = 'SUGGESTED'
+        suggestedStudentId = match.studentId
+        suggestedMatchReason = match.reason
+      } else {
+        ocrStatus = 'NO_MATCH'
+      }
+    }
+
     const doc = await prisma.universityDocument.create({
       data: {
         filename,
@@ -65,15 +82,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         studentId,
         uploadedById: user.id,
         organizationId: orgId,
-        ocrStatus: studentId ? 'SKIPPED' : 'PENDING',
+        ocrStatus,
+        suggestedStudentId,
+        suggestedMatchReason,
       },
     })
 
     await logActivity(user.id, 'UNIVERSITY_DOCUMENT_UPLOADED', `${file.name} → ${university.name}`)
-
-    // Fire-and-forget: runs after the response goes out, doesn't block the
-    // upload. Only when nobody already tagged a student for this file.
-    if (!studentId) enqueueOcr(doc.id)
 
     return NextResponse.json(doc, { status: 201 })
   } catch (error) {

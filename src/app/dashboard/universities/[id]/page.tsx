@@ -139,14 +139,6 @@ export default function UniversityDetailPage() {
     if (session) fetchUniversity()
   }, [id, session])
 
-  // Background text-detection runs after upload — poll while anything is
-  // still PENDING so a suggestion shows up without a manual refresh.
-  useEffect(() => {
-    if (!data?.documents.some(d => d.ocrStatus === 'PENDING')) return
-    const interval = setInterval(fetchUniversity, 4000)
-    return () => clearInterval(interval)
-  }, [data])
-
   async function acceptSuggestion(docId: string) {
     try {
       const res = await fetch(`/api/universities/${id}/documents/${docId}`, {
@@ -420,11 +412,6 @@ export default function UniversityDetailPage() {
                             {doc.student.fullName}
                           </p>
                         )}
-                        {doc.ocrStatus === 'PENDING' && (
-                          <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <Loader2 className="w-2.5 h-2.5 animate-spin" /> {t('universities.detecting')}
-                          </p>
-                        )}
                         {doc.ocrStatus === 'SUGGESTED' && doc.suggestedStudent && (
                           <div className="mt-0.5 px-1.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 w-full text-center">
                             <p className="text-[10px] text-amber-700 dark:text-amber-400 truncate" title={`${doc.suggestedStudent.fullName} · ${doc.suggestedStudent.passportNo}`}>
@@ -440,7 +427,7 @@ export default function UniversityDetailPage() {
                             </div>
                           </div>
                         )}
-                        {!doc.student && doc.ocrStatus !== 'PENDING' && doc.ocrStatus !== 'SUGGESTED' && (
+                        {!doc.student && doc.ocrStatus !== 'SUGGESTED' && (
                           manualTagDocId === doc.id ? (
                             <div className="w-full mt-0.5">
                               <StudentPicker value={null} onChange={s => s && manualTag(doc.id, s)} />
