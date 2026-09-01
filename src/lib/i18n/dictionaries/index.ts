@@ -15,6 +15,7 @@ import * as platform from './platform'
 import * as tasks from './tasks'
 import * as intake from './intake'
 import * as universities from './universities'
+import * as campaigns from './campaigns'
 
 export type Language = 'en' | 'zh'
 
@@ -37,6 +38,7 @@ export const dictionaries = {
     tasks: tasks.en,
     intake: intake.en,
     universities: universities.en,
+    campaigns: campaigns.en,
   },
   zh: {
     common: common.zh,
@@ -56,5 +58,6 @@ export const dictionaries = {
     tasks: tasks.zh,
     intake: intake.zh,
     universities: universities.zh,
+    campaigns: campaigns.zh,
   },
 }

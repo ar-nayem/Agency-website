@@ -157,6 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const platformNav = isSuperDeveloper ? [
     { label: t('platform.title'), href: '/dashboard/platform', icon: Building2 },
+    { label: t('campaigns.title'), href: '/dashboard/platform/campaigns', icon: Megaphone },
   ] : []
 
   const navItems = isSuperDeveloper

@@ -54,6 +54,7 @@ model User {
   receiveAlerts  Boolean @default(false)
   canExportBackup Boolean @default(false)
   canManageOfficialDocuments Boolean @default(false)
+  marketingOptOut Boolean @default(false)
   resetTokenHash       String?
   resetTokenExpiresAt  DateTime?
   pendingEmail              String?
@@ -86,6 +87,7 @@ model User {
   offers            Offer[]
   createdTasks      Task[] @relation("TaskCreatedBy")
   assignedTasks     Task[] @relation("TaskAssignedTo")
+  campaigns         Campaign[]
 }
 
 model Student {
@@ -569,4 +571,40 @@ model Task {
   @@index([organizationId])
   @@index([assignedToId])
   @@index([dueAt])
+}
+
+// Platform-level marketing to the developer's own leads — every org owner
+// and user who has ever signed up on this deployment. Not org-scoped:
+// only SUPER_DEVELOPER can create/send these (see /api/platform/campaigns).
+model Campaign {
+  id          String   @id @default(uuid())
+  subject     String
+  body        String
+  audience    String   @default("ALL") // ALL | OWNERS
+  status      String   @default("SENDING") // SENDING | SENT | FAILED
+  totalCount  Int      @default(0)
+  sentCount   Int      @default(0)
+  failedCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
+  recipients  CampaignRecipient[]
+}
+
+model CampaignRecipient {
+  id         String    @id @default(uuid())
+  email      String
+  name       String
+  orgName    String?
+  status     String    @default("PENDING") // PENDING | SENT | FAILED | SKIPPED
+  error      String?
+  sentAt     DateTime?
+
+  campaignId String
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
 }
