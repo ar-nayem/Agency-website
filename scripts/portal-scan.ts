@@ -17,6 +17,21 @@ function normalizeName(name: string | null | undefined): string {
   return (name || '').toUpperCase().replace(/\s+/g, ' ').trim()
 }
 
+// The VPS this runs on is memory-constrained and each AT0086 scan spins up a
+// CPU-heavy OCR worker to solve the login captcha — under load that can stall
+// the event loop long enough for the network fetch to time out or reset,
+// which Node reports as a generic "fetch failed"/ECONNRESET/ETIMEDOUT. That's
+// a transient hiccup, not the portal being down or blocking us — worth a
+// couple of retries before we record a real ERROR and alert the developer.
+// A genuine login failure (wrong password, account issue) surfaces as its
+// own message from at0086.ts's login(), not one of these, so it still fails
+// immediately without wasting retries or risking the site's lockout counter.
+const TRANSIENT_ERROR_PATTERN = /fetch failed|ECONNRESET|ETIMEDOUT|ECONNREFUSED|EAI_AGAIN|socket hang up|network/i
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 interface LocalRoster {
   byPassport: Map<string, string>
   byName: Map<string, string>
@@ -39,17 +54,32 @@ async function scanOnePortal(
   portal: { id: string; loginUrl: string; username: string; passwordEnc: string; name: string; platform: string; useProxy: boolean; organizationId: string | null },
   roster: LocalRoster
 ) {
-  let students: PortalStudentRecord[]
-  try {
-    const baseUrl = new URL(portal.loginUrl).origin
-    const password = decryptCredential(portal.passwordEnc)
-    students = await scanPortal(portal.platform, baseUrl, portal.username, password, portal.useProxy)
-  } catch (err: any) {
-    await prisma.universityPortal.update({
-      where: { id: portal.id },
-      data: { lastScanAt: new Date(), lastScanStatus: 'ERROR', lastScanError: String(err?.message || err) },
-    })
-    return { changes: [] as StatusChange[], error: String(err?.message || err) }
+  let students: PortalStudentRecord[] | undefined
+  let lastError = ''
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const baseUrl = new URL(portal.loginUrl).origin
+      const password = decryptCredential(portal.passwordEnc)
+      students = await scanPortal(portal.platform, baseUrl, portal.username, password, portal.useProxy)
+      break
+    } catch (err: any) {
+      lastError = String(err?.message || err)
+      if (attempt < maxAttempts && TRANSIENT_ERROR_PATTERN.test(lastError)) {
+        await sleep(attempt * 4000) // 4s, then 8s — gives the OCR-driven CPU spike time to pass
+        continue
+      }
+      await prisma.universityPortal.update({
+        where: { id: portal.id },
+        data: { lastScanAt: new Date(), lastScanStatus: 'ERROR', lastScanError: lastError },
+      })
+      return { changes: [] as StatusChange[], error: lastError }
+    }
+  }
+  if (!students) {
+    // Unreachable in practice (the loop always either breaks with students set
+    // or returns above) — satisfies TypeScript's control-flow analysis.
+    return { changes: [] as StatusChange[], error: lastError || 'Unknown scan error' }
   }
 
   const changes: StatusChange[] = []
