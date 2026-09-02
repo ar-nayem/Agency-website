@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
   ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone, Bell,
-  Building2, LogIn, ListTodo, ChevronLeft, ChevronRight, Package
+  Building2, LogIn, ListTodo, ChevronLeft, ChevronRight, Package, CreditCard
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -42,6 +42,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
   const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Subscription/trial state. Null until checked — the dashboard renders
+  // normally in the meantime rather than flashing a lockout screen at
+  // everyone on every page load.
+  const [accessState, setAccessState] = useState<{
+    state: string; organizationName?: string; isTrial?: boolean
+    accessExpiresAt?: string | null; daysLeft?: number | null; suspendedReason?: string | null
+  } | null>(null)
   const [exitingImpersonation, setExitingImpersonation] = useState(false)
   // Desktop-only icon-rail mode. Persisted so it survives navigation/reload;
   // read from localStorage after mount to avoid an SSR/client markup mismatch.
@@ -79,6 +86,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     setMobileOpen(false)
   }, [pathname])
+
+  // Deliberately its own endpoint, not /api/profile: every org-scoped route
+  // (profile included) stops answering once access lapses, so the check that
+  // explains the lockout has to sit outside that gate.
+  useEffect(() => {
+    if (!session?.user?.id) return
+    fetch('/api/organization/access', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setAccessState(data))
+      .catch(() => {})
+  }, [session?.user?.id, session?.user?.impersonatingOrgId])
 
   useEffect(() => {
     // A genuine (non-impersonating) platform operator has no org of their
@@ -166,6 +184,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const platformNav = isSuperDeveloper ? [
     { label: t('platform.title'), href: '/dashboard/platform', icon: Building2 },
     { label: t('packages.title'), href: '/dashboard/platform/packages', icon: Package },
+    { label: t('billing.title'), href: '/dashboard/platform/billing', icon: CreditCard },
+    // Platform-wide analytics: the same page an org owner sees, but the API
+    // returns every organization's traffic for a non-impersonating operator.
+    { label: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
     { label: t('campaigns.title'), href: '/dashboard/platform/campaigns', icon: Megaphone },
   ] : []
 
@@ -173,8 +195,59 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ? [...platformNav, { label: t('nav.settings'), href: '/dashboard/profile', icon: Settings }]
     : [...adminNav, ...portalsNav, ...ownerNav, ...baseNav]
 
+  // A lapsed or suspended organization gets a plain explanation instead of a
+  // dashboard whose every request fails. Sign out stays reachable so a user
+  // with a second account isn't stranded here.
+  const locked = accessState && (accessState.state === 'EXPIRED' || accessState.state === 'SUSPENDED')
+  if (locked) {
+    const isExpired = accessState.state === 'EXPIRED'
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-5 py-12">
+        <div className="w-full max-w-md text-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center mx-auto">
+            <Bell className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h1 className="mt-5 text-2xl font-bold tracking-tight">
+            {isExpired
+              ? (accessState.isTrial ? t('access.trialEnded') : t('access.subscriptionEnded'))
+              : t('access.suspendedTitle')}
+          </h1>
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            {isExpired ? t('access.expiredBody') : (accessState.suspendedReason || t('access.suspendedBody'))}
+          </p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            {t('access.contactUs')}{' '}
+            <a href="mailto:arltd023@gmail.com" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+              arltd023@gmail.com
+            </a>
+          </p>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="mt-7 px-5 py-2.5 rounded-xl border border-border font-medium text-sm hover:bg-muted transition"
+          >
+            {t('nav.signOut')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Gentle heads-up while access is still valid but running out.
+  const expiringSoon = accessState?.state === 'OK'
+    && typeof accessState.daysLeft === 'number'
+    && accessState.daysLeft <= 7
+
   return (
     <div className="min-h-screen bg-background">
+      {expiringSoon && (
+        <div className="no-print sticky top-0 z-50 bg-amber-500 text-amber-950 px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium flex-wrap">
+          <Bell className="w-4 h-4 shrink-0" />
+          <span>
+            {(accessState.isTrial ? t('access.trialBanner') : t('access.renewBanner'))
+              .replace('{n}', String(accessState.daysLeft))}
+          </span>
+        </div>
+      )}
       {isImpersonating && (
         <div className="no-print sticky top-0 z-50 bg-amber-500 text-amber-950 px-4 py-2 flex items-center justify-center gap-3 text-sm font-medium flex-wrap">
           <LogIn className="w-4 h-4 shrink-0" />

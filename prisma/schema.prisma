@@ -24,7 +24,44 @@ model Package {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Pricing is descriptive, not transactional — nothing charges a card here.
+  // The super developer records money actually received as Payment rows and
+  // extends the org's accessExpiresAt by hand; price/billingCycle exist so
+  // the public pricing page and the renewal maths have a figure to work from.
+  price        Float?
+  currency     String   @default("CNY")
+  billingCycle String   @default("MONTHLY") // MONTHLY | QUARTERLY | YEARLY | ONE_TIME
+  // Only packages marked public appear on the marketing site's pricing table;
+  // bespoke or legacy tiers stay internal.
+  isPublic     Boolean  @default(false)
+  // The tier a self-serve trial signup lands on. Exactly one package should
+  // carry this; the trial route picks the lowest sortOrder among any that do.
+  isTrialPlan  Boolean  @default(false)
+
   organizations Organization[]
+}
+
+// Money actually received, logged by hand by the super developer. Immutable
+// history: renewing an org appends a row and pushes accessExpiresAt out,
+// rather than overwriting anything, so the billing trail survives plan
+// changes. Cascade — a deleted org's payment history goes with it.
+model Payment {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  amount         Float
+  currency       String   @default("CNY")
+  method         String?  // BANK_TRANSFER | ALIPAY | WECHAT | CASH | OTHER
+  reference      String?
+  note           String?
+  // The access window this payment bought — periodEnd is what gets written
+  // to the organization's accessExpiresAt when the payment is recorded.
+  periodStart    DateTime
+  periodEnd      DateTime
+  recordedById   String
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
 }
 
 model Organization {
@@ -48,6 +85,20 @@ model Organization {
   // it should just uncap them back to unrestricted.
   packageId String?
   package   Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  // Null = never expires (the pre-existing orgs, and anything the super
+  // developer runs open-ended). A date in the past locks every one of that
+  // org's users out exactly like SUSPENDED does — see getEffectiveUser.
+  accessExpiresAt DateTime?
+  // Set by the public 7-day trial signup, cleared on first real payment.
+  // Purely for labelling: expiry itself is always accessExpiresAt.
+  isTrial         Boolean   @default(false)
+  // Where this company's own alert mail goes. Falls back to the OWNER's
+  // login address when unset — the developer inbox is never a default for
+  // org-scoped mail, only a last resort when an org has no owner at all.
+  alertEmail      String?
+
+  payments Payment[]
 
   users                User[]
   students             Student[]
@@ -533,9 +584,18 @@ model VisitorLog {
   ip        String?
   createdAt DateTime @default(now())
 
+  // Which tenant's analytics this hit belongs to. Null for genuinely
+  // anonymous traffic (the marketing and login pages, where no org is
+  // known yet) — those rows are visible only to the super developer, never
+  // attributed to some arbitrary org. Rows written before this column
+  // existed are also null, so they drop out of per-org views rather than
+  // leaking across tenants.
+  organizationId String?
+
   @@index([userId])
   @@index([createdAt])
   @@index([path])
+  @@index([organizationId])
 }
 
 model Offer {

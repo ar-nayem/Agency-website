@@ -11,14 +11,21 @@ export async function middleware(request: NextRequest) {
   // Allow public routes
   const isPublicOffersRead = pathname === '/api/offers' && request.method === 'GET'
   const isChatbot = pathname === '/api/chatbot'
+  // The marketing site and its trial signup are deliberately reachable while
+  // signed out — they're how someone becomes a customer in the first place.
+  const isMarketing = pathname === '/' || pathname === '/signup'
   if (
     pathname === '/login' ||
+    isMarketing ||
     pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/public/intake') ||
+    pathname.startsWith('/api/public/') ||
     pathname === '/api/analytics/track' ||
     isPublicOffersRead ||
     isChatbot
   ) {
+    // An already-signed-in visitor hitting /login goes to their dashboard;
+    // the marketing pages stay readable to them, since an owner may well be
+    // looking up pricing while logged in.
     if (token && pathname === '/login') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }

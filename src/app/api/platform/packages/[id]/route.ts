@@ -7,6 +7,8 @@ import { FEATURE_KEYS } from '@/src/lib/features'
 import { logActivity } from '@/src/lib/activity'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const BILLING_CYCLES = ['MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'] as const
+
 function serializePackage(p: { features: string; [k: string]: unknown }) {
   let features: string[] = []
   try {
@@ -34,6 +36,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if ('description' in body) data.description = body.description || null
     if ('studentLimit' in body) data.studentLimit = body.studentLimit === null ? null : Number(body.studentLimit)
     if (typeof body.sortOrder === 'number') data.sortOrder = body.sortOrder
+    if ('price' in body) data.price = body.price === null || body.price === '' ? null : Number(body.price)
+    if (typeof body.currency === 'string' && body.currency.trim()) data.currency = body.currency.trim()
+    if (typeof body.billingCycle === 'string') {
+      if (!BILLING_CYCLES.includes(body.billingCycle)) {
+        return NextResponse.json({ error: 'Unknown billing cycle' }, { status: 400 })
+      }
+      data.billingCycle = body.billingCycle
+    }
+    if (typeof body.isPublic === 'boolean') data.isPublic = body.isPublic
+    if (typeof body.isTrialPlan === 'boolean') data.isTrialPlan = body.isTrialPlan
     if (Array.isArray(body.features)) {
       data.features = JSON.stringify(body.features.filter((f: unknown): f is string => typeof f === 'string' && FEATURE_KEYS.includes(f)))
     }

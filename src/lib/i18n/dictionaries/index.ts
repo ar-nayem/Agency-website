@@ -17,6 +17,8 @@ import * as intake from './intake'
 import * as universities from './universities'
 import * as campaigns from './campaigns'
 import * as packages from './packages'
+import * as billing from './billing'
+import * as access from './access'
 
 export type Language = 'en' | 'zh'
 
@@ -41,6 +43,8 @@ export const dictionaries = {
     universities: universities.en,
     campaigns: campaigns.en,
     packages: packages.en,
+    billing: billing.en,
+    access: access.en,
   },
   zh: {
     common: common.zh,
@@ -62,5 +66,7 @@ export const dictionaries = {
     universities: universities.zh,
     campaigns: campaigns.zh,
     packages: packages.zh,
+    billing: billing.zh,
+    access: access.zh,
   },
 }

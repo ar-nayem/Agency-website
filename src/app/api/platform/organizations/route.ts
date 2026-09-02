@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
       select: {
         id: true, name: true, slug: true, status: true, planTier: true, studentLimit: true,
         createdAt: true, suspendedAt: true, suspendedReason: true,
-        packageId: true, package: { select: { id: true, name: true } },
+        packageId: true, package: { select: { id: true, name: true, price: true, currency: true, billingCycle: true } },
+        accessExpiresAt: true, isTrial: true, alertEmail: true,
         _count: { select: { users: true, students: true } },
       },
     })

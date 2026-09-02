@@ -7,6 +7,8 @@ import { FEATURE_KEYS } from '@/src/lib/features'
 import { logActivity } from '@/src/lib/activity'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const BILLING_CYCLES = ['MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'] as const
+
 function serializePackage(p: { features: string; [k: string]: unknown }) {
   let features: string[] = []
   try {
@@ -42,9 +44,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, description, studentLimit, sortOrder } = body
+    const { name, description, studentLimit, sortOrder, price, currency, billingCycle, isPublic, isTrialPlan } = body
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
+    }
+    if (billingCycle && !BILLING_CYCLES.includes(billingCycle)) {
+      return NextResponse.json({ error: 'Unknown billing cycle' }, { status: 400 })
     }
 
     const features: string[] = Array.isArray(body.features)
@@ -58,6 +63,11 @@ export async function POST(req: NextRequest) {
         features: JSON.stringify(features),
         studentLimit: studentLimit === null || studentLimit === undefined ? null : Number(studentLimit),
         sortOrder: typeof sortOrder === 'number' ? sortOrder : 0,
+        price: price === null || price === undefined || price === '' ? null : Number(price),
+        currency: currency || 'CNY',
+        billingCycle: billingCycle || 'MONTHLY',
+        isPublic: !!isPublic,
+        isTrialPlan: !!isTrialPlan,
       },
     })
 

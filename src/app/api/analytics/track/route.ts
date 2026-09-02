@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
         referrer,
         userAgent: req.headers.get('user-agent')?.slice(0, 500) || null,
         ip: getClientIp(req),
+        // Stamped at write time so each org's analytics can be filtered
+        // without joining through User (whose org could change later, which
+        // would silently rewrite history). Anonymous traffic stays null.
+        organizationId: user?.organizationId || null,
       },
     })
 

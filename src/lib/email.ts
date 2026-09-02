@@ -25,11 +25,24 @@ async function getAlertRecipients(organizationId: string | null): Promise<string
   if (!organizationId) return [DEVELOPER_EMAIL]
   const recipients = new Set<string>()
   try {
-    const owner = await prisma.user.findFirst({
-      where: { role: 'OWNER', organizationId },
-      select: { email: true },
+    // A company can nominate its own alert inbox (info@, admissions@, a
+    // shared team address) instead of whichever individual happens to hold
+    // the OWNER login. When set it replaces the owner as the primary
+    // recipient rather than adding to it — otherwise every alert would
+    // duplicate to a personal address the company deliberately moved off.
+    const org = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { alertEmail: true },
     })
-    if (owner) recipients.add(owner.email)
+    if (org?.alertEmail) {
+      recipients.add(org.alertEmail)
+    } else {
+      const owner = await prisma.user.findFirst({
+        where: { role: 'OWNER', organizationId },
+        select: { email: true },
+      })
+      if (owner) recipients.add(owner.email)
+    }
     const optedIn = await prisma.user.findMany({
       where: { receiveAlerts: true, isActive: true, organizationId },
       select: { email: true },
@@ -38,8 +51,8 @@ async function getAlertRecipients(organizationId: string | null): Promise<string
   } catch (error) {
     console.error('Failed to load alert recipients:', error)
   }
-  // Always fall back to the developer inbox if an org somehow has no owner
-  // yet — better than silently dropping the notification.
+  // Last resort only — an org with no alert address, no owner and nobody
+  // opted in. Better the developer sees it than the alert vanishes.
   if (recipients.size === 0) recipients.add(DEVELOPER_EMAIL)
   return Array.from(recipients)
 }

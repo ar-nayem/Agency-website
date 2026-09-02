@@ -15,8 +15,15 @@ interface Pkg {
   features: string[]
   studentLimit: number | null
   sortOrder: number
+  price: number | null
+  currency: string
+  billingCycle: string
+  isPublic: boolean
+  isTrialPlan: boolean
   _count: { organizations: number }
 }
+
+const BILLING_CYCLES = ['MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME']
 
 const GROUPS = FEATURE_GROUPS
 
@@ -30,8 +37,8 @@ export default function PackagesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editState, setEditState] = useState<{ name: string; description: string; studentLimit: string; features: string[] } | null>(null)
-  const [form, setForm] = useState({ name: '', description: '', studentLimit: '', features: [] as string[] })
+  const [editState, setEditState] = useState<{ name: string; description: string; studentLimit: string; price: string; currency: string; billingCycle: string; isPublic: boolean; isTrialPlan: boolean; features: string[] } | null>(null)
+  const [form, setForm] = useState({ name: '', description: '', studentLimit: '', price: '', currency: 'CNY', billingCycle: 'MONTHLY', isPublic: false, isTrialPlan: false, features: [] as string[] })
 
   useEffect(() => {
     if (session && session.user?.actualRole !== 'SUPER_DEVELOPER') {
@@ -69,6 +76,11 @@ export default function PackagesPage() {
           name: form.name,
           description: form.description || undefined,
           studentLimit: form.studentLimit ? Number(form.studentLimit) : null,
+          price: form.price === '' ? null : Number(form.price),
+          currency: form.currency,
+          billingCycle: form.billingCycle,
+          isPublic: form.isPublic,
+          isTrialPlan: form.isTrialPlan,
           features: form.features,
         }),
       })
@@ -76,7 +88,7 @@ export default function PackagesPage() {
       if (res.ok) {
         toast.success(t('packages.created'))
         setShowForm(false)
-        setForm({ name: '', description: '', studentLimit: '', features: [] })
+        setForm({ name: '', description: '', studentLimit: '', price: '', currency: 'CNY', billingCycle: 'MONTHLY', isPublic: false, isTrialPlan: false, features: [] })
         fetchPkgs()
       } else {
         toast.error(data.error || t('packages.createFailed'))
@@ -94,6 +106,11 @@ export default function PackagesPage() {
       name: pkg.name,
       description: pkg.description || '',
       studentLimit: pkg.studentLimit === null ? '' : String(pkg.studentLimit),
+      price: pkg.price === null ? '' : String(pkg.price),
+      currency: pkg.currency || 'CNY',
+      billingCycle: pkg.billingCycle || 'MONTHLY',
+      isPublic: pkg.isPublic,
+      isTrialPlan: pkg.isTrialPlan,
       features: pkg.features,
     })
   }
@@ -110,6 +127,11 @@ export default function PackagesPage() {
           name: editState.name,
           description: editState.description || null,
           studentLimit: editState.studentLimit ? Number(editState.studentLimit) : null,
+          price: editState.price === '' ? null : Number(editState.price),
+          currency: editState.currency,
+          billingCycle: editState.billingCycle,
+          isPublic: editState.isPublic,
+          isTrialPlan: editState.isTrialPlan,
           features: editState.features,
         }),
       })
@@ -197,6 +219,50 @@ export default function PackagesPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">{t('packages.price')}</label>
+                <input
+                  type="number" min={0} step="0.01"
+                  value={form.price}
+                  onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))}
+                  placeholder={t('packages.pricePlaceholder')}
+                  className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">{t('packages.currency')}</label>
+                <input
+                  type="text"
+                  value={form.currency}
+                  onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">{t('packages.billingCycle')}</label>
+                <select
+                  value={form.billingCycle}
+                  onChange={(e) => setForm((p) => ({ ...p, billingCycle: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-card"
+                >
+                  {BILLING_CYCLES.map((c) => <option key={c} value={c}>{t(`packages.cycle${c}`)}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col justify-end gap-1.5 pb-1">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                  <input type="checkbox" checked={form.isPublic} className="accent-indigo-600"
+                    onChange={(e) => setForm((p) => ({ ...p, isPublic: e.target.checked }))} />
+                  {t('packages.isPublic')}
+                </label>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                  <input type="checkbox" checked={form.isTrialPlan} className="accent-indigo-600"
+                    onChange={(e) => setForm((p) => ({ ...p, isTrialPlan: e.target.checked }))} />
+                  {t('packages.isTrialPlan')}
+                </label>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">{t('packages.features')}</label>
               <FeatureGrid
@@ -258,6 +324,50 @@ export default function PackagesPage() {
                       />
                     </div>
                   </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('packages.price')}</label>
+                  <input
+                    type="number" min={0} step="0.01"
+                    value={editState.price}
+                    onChange={(e) => setEditState((p) => p && { ...p, price: e.target.value })}
+                    placeholder={t('packages.pricePlaceholder')}
+                    className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('packages.currency')}</label>
+                  <input
+                    type="text"
+                    value={editState.currency}
+                    onChange={(e) => setEditState((p) => p && { ...p, currency: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('packages.billingCycle')}</label>
+                  <select
+                    value={editState.billingCycle}
+                    onChange={(e) => setEditState((p) => p && { ...p, billingCycle: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-card"
+                  >
+                    {BILLING_CYCLES.map((c) => <option key={c} value={c}>{t(`packages.cycle${c}`)}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col justify-end gap-1.5 pb-1">
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                    <input type="checkbox" checked={editState.isPublic} className="accent-indigo-600"
+                      onChange={(e) => setEditState((p) => p && { ...p, isPublic: e.target.checked })} />
+                    {t('packages.isPublic')}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                    <input type="checkbox" checked={editState.isTrialPlan} className="accent-indigo-600"
+                      onChange={(e) => setEditState((p) => p && { ...p, isTrialPlan: e.target.checked })} />
+                    {t('packages.isTrialPlan')}
+                  </label>
+                </div>
+              </div>
+
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">{t('packages.features')}</label>
                     <FeatureGrid

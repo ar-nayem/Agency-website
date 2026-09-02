@@ -47,8 +47,16 @@ export async function getEffectiveUser(req: NextRequest): Promise<EffectiveUser 
   const activeOrgId = impersonatingOrgId ?? baseOrgId
 
   if (activeOrgId) {
-    const org = await prisma.organization.findUnique({ where: { id: activeOrgId }, select: { status: true } })
-    if (!org || org.status === 'SUSPENDED') {
+    const org = await prisma.organization.findUnique({
+      where: { id: activeOrgId },
+      select: { status: true, accessExpiresAt: true },
+    })
+    // An elapsed access window locks the org out exactly like suspension —
+    // a lapsed subscription and a suspended account are the same thing from
+    // the app's side. The SUPER_DEVELOPER is exempt so an expired tenant can
+    // still be inspected and renewed.
+    const expired = !!org?.accessExpiresAt && org.accessExpiresAt.getTime() <= Date.now()
+    if (!org || org.status === 'SUSPENDED' || expired) {
       if (actualRole !== SUPER_DEVELOPER) return null
     }
   }

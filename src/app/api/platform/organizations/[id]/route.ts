@@ -41,6 +41,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       data.packageId = body.packageId
     }
+    // null clears the window back to open-ended access rather than expiring
+    // the org immediately — "no expiry set" and "expired" must stay distinct.
+    if ('accessExpiresAt' in body) {
+      if (body.accessExpiresAt === null || body.accessExpiresAt === '') {
+        data.accessExpiresAt = null
+      } else {
+        const when = new Date(body.accessExpiresAt)
+        if (Number.isNaN(when.getTime())) {
+          return NextResponse.json({ error: 'Invalid accessExpiresAt date' }, { status: 400 })
+        }
+        data.accessExpiresAt = when
+      }
+    }
+    if (typeof body.isTrial === 'boolean') data.isTrial = body.isTrial
+    if ('alertEmail' in body) {
+      const raw = typeof body.alertEmail === 'string' ? body.alertEmail.trim() : ''
+      if (raw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
+        return NextResponse.json({ error: 'alertEmail must be a valid email address' }, { status: 400 })
+      }
+      data.alertEmail = raw || null
+    }
 
     const org = await prisma.organization.update({ where: { id }, data })
 

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
+import { SUPER_DEVELOPER } from '@/src/lib/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { parseBrowser, parseOS, parseDeviceType } from '@/src/lib/uaParse'
 
@@ -22,8 +23,13 @@ function utcDayStart(dateKey: string): Date {
 export async function GET(req: NextRequest) {
   try {
     const user = await getEffectiveUser(req)
-    if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    if (!(await orgHasFeature(user.organizationId, 'visitor_analytics'))) {
+    // A genuine platform operator (not impersonating) sees the whole
+    // deployment; everyone else is an org owner and sees only their own.
+    const isPlatformView = user?.actualRole === SUPER_DEVELOPER && !user.isImpersonating
+    if (!user || (!isOwner(user.role) && !isPlatformView)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (!isPlatformView && !(await orgHasFeature(user.organizationId, 'visitor_analytics'))) {
       return NextResponse.json({ error: 'Visitor Analytics is not included in your plan' }, { status: 403 })
     }
 
@@ -31,8 +37,15 @@ export async function GET(req: NextRequest) {
     const days = Math.min(Math.max(Number(searchParams.get('days')) || 30, 1), 90)
     const since = new Date(Date.now() - days * 24 * 3600 * 1000)
 
+    // The scoping that keeps one tenant's traffic out of another's report.
+    // An org owner sees strictly their own organizationId — never null-org
+    // (anonymous marketing/login traffic), which belongs to no tenant and
+    // would otherwise be double-counted into every org's numbers.
+    const where: any = { createdAt: { gte: since } }
+    if (!isPlatformView) where.organizationId = user.organizationId
+
     const logs = await prisma.visitorLog.findMany({
-      where: { createdAt: { gte: since } },
+      where,
       orderBy: { createdAt: 'desc' },
     })
 
