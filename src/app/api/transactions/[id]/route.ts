@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
@@ -11,6 +11,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!(await orgHasFeature(user.organizationId, 'finance'))) {
+      return NextResponse.json({ error: 'Finance is not included in your plan' }, { status: 403 })
+    }
 
     const { id } = await params
     const transaction = await prisma.transaction.findUnique({
@@ -38,6 +41,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!(await orgHasFeature(user.organizationId, 'finance'))) {
+      return NextResponse.json({ error: 'Finance is not included in your plan' }, { status: 403 })
+    }
 
     const { id } = await params
     const existing = await prisma.transaction.findUnique({ where: { id } })
@@ -107,6 +113,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!(await orgHasFeature(user.organizationId, 'finance'))) {
+      return NextResponse.json({ error: 'Finance is not included in your plan' }, { status: 403 })
+    }
 
     const { id } = await params
     const existing = await prisma.transaction.findUnique({

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { orgWhere, isSameOrg, requireOrgId } from '@/src/lib/orgScope'
 import { sendMail, taskAssignedTemplate } from '@/src/lib/email'
 import { logActivity } from '@/src/lib/activity'
@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
     const user = await getEffectiveUser(req)
     if (!user || (user.role !== 'OWNER' && user.role !== 'ADMIN')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'tasks'))) {
+      return NextResponse.json({ error: 'Tasks is not included in your plan' }, { status: 403 })
     }
 
     const where: any = { ...orgWhere(user) }
@@ -40,6 +43,9 @@ export async function POST(req: NextRequest) {
     const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'tasks'))) {
+      return NextResponse.json({ error: 'Tasks is not included in your plan' }, { status: 403 })
     }
 
     const orgId = requireOrgId(user)

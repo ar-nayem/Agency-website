@@ -34,6 +34,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (typeof body.name === 'string' && body.name.trim()) data.name = body.name.trim()
     if (typeof body.planTier === 'string') data.planTier = body.planTier
     if ('studentLimit' in body) data.studentLimit = body.studentLimit === null ? null : Number(body.studentLimit)
+    if ('packageId' in body) {
+      if (body.packageId !== null) {
+        const pkg = await prisma.package.findUnique({ where: { id: body.packageId } })
+        if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 400 })
+      }
+      data.packageId = body.packageId
+    }
 
     const org = await prisma.organization.update({ where: { id }, data })
 

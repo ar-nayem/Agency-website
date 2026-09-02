@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, canManageOfficialDocs } from '@/src/lib/session'
+import { getEffectiveUser, canManageOfficialDocs, orgHasFeature } from '@/src/lib/session'
 import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
     const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'document_requirements'))) {
+      return NextResponse.json({ error: 'Document Requirements is not included in your plan' }, { status: 403 })
     }
 
     const orgId = requireOrgId(user)

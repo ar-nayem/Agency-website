@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole, orgHasAnyFeature, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -10,6 +10,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const user = await getEffectiveUser(req)
     if (!user || !isAdminRole(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasAnyFeature(user.organizationId, ['manage_accounts', 'alert_settings']))) {
+      return NextResponse.json({ error: 'Manage Accounts is not included in your plan' }, { status: 403 })
     }
 
     const { id } = await params
@@ -107,6 +110,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Only the owner can delete accounts' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'manage_accounts'))) {
+      return NextResponse.json({ error: 'Manage Accounts is not included in your plan' }, { status: 403 })
     }
 
     const { id } = await params

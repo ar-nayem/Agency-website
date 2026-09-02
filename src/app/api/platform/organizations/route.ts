@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true, name: true, slug: true, status: true, planTier: true, studentLimit: true,
         createdAt: true, suspendedAt: true, suspendedReason: true,
+        packageId: true, package: { select: { id: true, name: true } },
         _count: { select: { users: true, students: true } },
       },
     })
@@ -49,13 +50,17 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { organizationName, ownerName, ownerEmail, ownerPassword } = body
+    const { organizationName, ownerName, ownerEmail, ownerPassword, packageId } = body
 
     if (!organizationName || !ownerName || !ownerEmail || !ownerPassword) {
       return NextResponse.json({ error: 'organizationName, ownerName, ownerEmail, ownerPassword are all required' }, { status: 400 })
     }
     if (ownerPassword.length < 6) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+    }
+    if (packageId) {
+      const pkg = await prisma.package.findUnique({ where: { id: packageId } })
+      if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 400 })
     }
 
     const baseSlug = slugify(organizationName) || 'org'
@@ -74,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     const { org, owner } = await prisma.$transaction(async (tx) => {
       const org = await tx.organization.create({
-        data: { name: organizationName.trim(), slug, createdByUserId: user.id },
+        data: { name: organizationName.trim(), slug, createdByUserId: user.id, packageId: packageId || null },
       })
       const owner = await tx.user.create({
         data: {

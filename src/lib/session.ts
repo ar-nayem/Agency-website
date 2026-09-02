@@ -2,6 +2,7 @@ import { getToken } from 'next-auth/jwt'
 import { NextRequest } from 'next/server'
 import { prisma } from './prisma'
 import { SUPER_DEVELOPER } from './roles'
+import { parseFeatures, type FeatureKey } from './features'
 
 const secret = process.env.NEXTAUTH_SECRET || 'glorie-secret-key-2024-change-in-production'
 
@@ -67,11 +68,40 @@ export function isAdminRole(role: string | undefined) {
   return role === 'ADMIN' || role === 'OWNER'
 }
 
+// Null means unrestricted (no package assigned — legacy org, or a super
+// developer has to explicitly put an org on a tier before anything gets
+// capped). A real array means the org's package caps access to exactly
+// those feature keys, even an empty list.
+export async function getOrgEnabledFeatures(organizationId: string | null): Promise<string[] | null> {
+  if (!organizationId) return null
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { package: { select: { features: true } } },
+  })
+  if (!org?.package) return null
+  return parseFeatures(org.package.features)
+}
+
+// Whether an org's assigned Package (see src/lib/features.ts) includes the
+// given feature.
+export async function orgHasFeature(organizationId: string | null, featureKey: FeatureKey): Promise<boolean> {
+  const enabled = await getOrgEnabledFeatures(organizationId)
+  return enabled === null || enabled.includes(featureKey)
+}
+
+// For an API surface shared by two nav-level features (Manage Accounts and
+// Alert Settings both read/write /api/users) — access if either is enabled.
+export async function orgHasAnyFeature(organizationId: string | null, featureKeys: FeatureKey[]): Promise<boolean> {
+  const enabled = await getOrgEnabledFeatures(organizationId)
+  return enabled === null || featureKeys.some((k) => enabled.includes(k))
+}
+
 // University Portals visibility for admins is a per-account grant the owner
 // toggles at any time — the JWT only carries role (set at login), so this
 // needs a live DB read rather than trusting a stale token claim.
-export async function canAccessPortals(user: { id: string; role: string } | null): Promise<boolean> {
+export async function canAccessPortals(user: { id: string; role: string; organizationId?: string | null } | null): Promise<boolean> {
   if (!user) return false
+  if (!(await orgHasFeature(user.organizationId ?? null, 'university_portals'))) return false
   if (user.role === 'OWNER') return true
   if (user.role !== 'ADMIN') return false
   const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { canViewPortals: true } })

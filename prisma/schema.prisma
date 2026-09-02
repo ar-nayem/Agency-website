@@ -7,6 +7,26 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+// A subscription tier the super developer defines and assigns to
+// organizations, capping which gateable features (see src/lib/features.ts)
+// that org's users can reach. `features` is a JSON array of feature keys —
+// stored as free-form JSON rather than one column per feature so the super
+// developer can add a new gateable feature in code without a schema
+// migration; it only needs an entry in the FEATURES registry to show up as
+// a togglable checkbox here.
+model Package {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  description  String?
+  features     String   @default("[]")
+  studentLimit Int?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organizations Organization[]
+}
+
 model Organization {
   id              String    @id @default(uuid())
   name            String
@@ -20,6 +40,14 @@ model Organization {
   createdByUserId String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  // No package assigned = unrestricted (every gateable feature available) —
+  // legacy orgs and anyone the super developer hasn't put on a tier yet keep
+  // full access instead of silently losing features on deploy. SetNull (not
+  // Cascade or Restrict): deleting a package shouldn't take its orgs down,
+  // it should just uncap them back to unrestricted.
+  packageId String?
+  package   Package?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
   users                User[]
   students             Student[]

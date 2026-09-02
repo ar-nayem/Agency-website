@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
 import { sendMail, taskCompletedTemplate } from '@/src/lib/email'
 import { TASK_STATUSES } from '@/src/lib/tasks'
@@ -13,6 +13,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const user = await getEffectiveUser(req)
     if (!user || (user.role !== 'OWNER' && user.role !== 'ADMIN')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'tasks'))) {
+      return NextResponse.json({ error: 'Tasks is not included in your plan' }, { status: 403 })
     }
 
     const { id } = await params
@@ -75,6 +78,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'tasks'))) {
+      return NextResponse.json({ error: 'Tasks is not included in your plan' }, { status: 403 })
     }
 
     const { id } = await params

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
 import { logActivity } from '@/src/lib/activity'
 import { hash } from 'bcryptjs'
@@ -23,6 +23,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Only the owner can reset passwords' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'manage_accounts'))) {
+      return NextResponse.json({ error: 'Manage Accounts is not included in your plan' }, { status: 403 })
     }
 
     const { id } = await params

@@ -16,7 +16,14 @@ interface Org {
   studentLimit: number | null
   createdAt: string
   suspendedReason: string | null
+  packageId: string | null
+  package: { id: string; name: string } | null
   _count: { users: number; students: number }
+}
+
+interface PkgOption {
+  id: string
+  name: string
 }
 
 export default function PlatformPage() {
@@ -24,18 +31,22 @@ export default function PlatformPage() {
   const router = useRouter()
   const { t } = useLanguage()
   const [orgs, setOrgs] = useState<Org[]>([])
+  const [pkgOptions, setPkgOptions] = useState<PkgOption[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [form, setForm] = useState({ organizationName: '', ownerName: '', ownerEmail: '', ownerPassword: '' })
+  const [form, setForm] = useState({ organizationName: '', ownerName: '', ownerEmail: '', ownerPassword: '', packageId: '' })
 
   useEffect(() => {
     if (session && session.user?.actualRole !== 'SUPER_DEVELOPER') {
       router.push('/dashboard')
       return
     }
-    if (session) fetchOrgs()
+    if (session) {
+      fetchOrgs()
+      fetchPkgOptions()
+    }
   }, [session])
 
   async function fetchOrgs() {
@@ -47,6 +58,31 @@ export default function PlatformPage() {
       toast.error(t('platform.loadFailed'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchPkgOptions() {
+    try {
+      const res = await fetch('/api/platform/packages', { credentials: 'include' })
+      if (res.ok) setPkgOptions(await res.json())
+    } catch {}
+  }
+
+  async function assignPackage(org: Org, packageId: string) {
+    setBusyId(org.id)
+    try {
+      const res = await fetch(`/api/platform/organizations/${org.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ packageId: packageId || null }),
+      })
+      if (res.ok) fetchOrgs()
+      else toast.error(t('platform.updateFailed'))
+    } catch {
+      toast.error(t('platform.updateFailed'))
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -64,7 +100,7 @@ export default function PlatformPage() {
       if (res.ok) {
         toast.success(t('platform.created'))
         setShowForm(false)
-        setForm({ organizationName: '', ownerName: '', ownerEmail: '', ownerPassword: '' })
+        setForm({ organizationName: '', ownerName: '', ownerEmail: '', ownerPassword: '', packageId: '' })
         fetchOrgs()
       } else {
         toast.error(data.error || t('platform.createFailed'))
@@ -140,7 +176,7 @@ export default function PlatformPage() {
 
       {showForm && (
         <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
-          <form onSubmit={createOrg} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <form onSubmit={createOrg} className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">{t('platform.organizationName')}</label>
               <input
@@ -178,7 +214,20 @@ export default function PlatformPage() {
                 className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
               />
             </div>
-            <div className="md:col-span-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">{t('packages.assignPackage')}</label>
+              <select
+                value={form.packageId}
+                onChange={(e) => setForm((p) => ({ ...p, packageId: e.target.value }))}
+                className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-card"
+              >
+                <option value="">{t('packages.unrestricted')}</option>
+                {pkgOptions.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-5">
               <button
                 type="submit" disabled={submitting}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition flex items-center gap-2 text-sm disabled:opacity-50"
@@ -203,6 +252,7 @@ export default function PlatformPage() {
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('platform.users')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('platform.students')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('platform.plan')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('packages.assignPackage')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('platform.status')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
@@ -226,6 +276,19 @@ export default function PlatformPage() {
                       <span className="inline-flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5" />{org._count.students}</span>
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{org.planTier}</td>
+                    <td className="px-6 py-4">
+                      <select
+                        value={org.packageId || ''}
+                        disabled={busyId === org.id}
+                        onChange={(e) => assignPackage(org, e.target.value)}
+                        className="px-2.5 py-1.5 border border-border rounded-lg text-xs bg-card disabled:opacity-50"
+                      >
+                        <option value="">{t('packages.unrestricted')}</option>
+                        {pkgOptions.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${
                         org.status === 'ACTIVE'

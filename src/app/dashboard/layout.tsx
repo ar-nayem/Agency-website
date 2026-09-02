@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
   ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone, Bell,
-  Building2, LogIn, ListTodo, ChevronLeft, ChevronRight
+  Building2, LogIn, ListTodo, ChevronLeft, ChevronRight, Package
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Student Portal', logo: null })
   const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Student Portal', logo: null })
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
-  const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
+  const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean; enabledFeatures: string[] | null } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [exitingImpersonation, setExitingImpersonation] = useState(false)
   // Desktop-only icon-rail mode. Persisted so it survives navigation/reload;
@@ -113,12 +113,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .then(data => {
           setMyAvatar(data?.profile?.avatar || null)
           if (data?.profile) {
-            setMyProfile({ name: data.profile.name, email: data.profile.email, canViewPortals: !!data.profile.canViewPortals })
+            setMyProfile({
+              name: data.profile.name, email: data.profile.email, canViewPortals: !!data.profile.canViewPortals,
+              enabledFeatures: Array.isArray(data.enabledFeatures) ? data.enabledFeatures : null,
+            })
           }
         })
         .catch(() => {})
     }
   }, [session?.user?.id, session?.user?.impersonatingOrgId, isSuperDeveloper])
+
+  // Feature gating by the org's Package (see src/lib/features.ts), set by the
+  // super developer. `null` (not yet fetched, or no package assigned) means
+  // unrestricted — default to showing every item rather than flashing the
+  // sidebar empty on every page load; it only narrows down once a real
+  // package's feature list comes back.
+  const enabledFeatures = myProfile?.enabledFeatures ?? null
+  const hasFeature = (key: string) => enabledFeatures === null || enabledFeatures.includes(key)
 
   const baseNav = [
     { label: t('nav.messages'), href: '/dashboard/messages', icon: MessageSquare },
@@ -129,34 +140,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: t('nav.dashboard'), href: '/dashboard/admin', icon: LayoutDashboard },
     { label: t('nav.allStudents'), href: '/dashboard/students', icon: Users },
     { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
-    { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
-    { label: t('nav.tasks'), href: '/dashboard/tasks', icon: ListTodo },
-    { label: 'Offers', href: '/dashboard/offers', icon: Megaphone },
-    { label: t('nav.universities'), href: '/dashboard/universities', icon: GraduationCap },
-  ] : [
+    hasFeature('finance') && { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
+    hasFeature('tasks') && { label: t('nav.tasks'), href: '/dashboard/tasks', icon: ListTodo },
+    hasFeature('offers') && { label: 'Offers', href: '/dashboard/offers', icon: Megaphone },
+    hasFeature('universities') && { label: t('nav.universities'), href: '/dashboard/universities', icon: GraduationCap },
+  ].filter(Boolean) as { label: string; href: string; icon: typeof LayoutDashboard }[] : [
     { label: t('nav.dashboard'), href: '/dashboard/agent', icon: LayoutDashboard },
     { label: t('nav.myStudents'), href: '/dashboard/students', icon: Users },
     { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
-    { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
+    ...(hasFeature('finance') ? [{ label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet }] : []),
   ]
 
   const ownerNav = isOwner ? [
-    { label: t('nav.manageAccounts'), href: '/dashboard/agents', icon: Shield },
-    { label: t('nav.docRequirements'), href: '/dashboard/document-requirements', icon: FileText },
-    { label: t('nav.fieldRequirements'), href: '/dashboard/field-requirements', icon: ListChecks },
-    { label: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
-    { label: 'Alert Settings', href: '/dashboard/admin/alerts', icon: Bell },
-  ] : []
+    hasFeature('manage_accounts') && { label: t('nav.manageAccounts'), href: '/dashboard/agents', icon: Shield },
+    hasFeature('document_requirements') && { label: t('nav.docRequirements'), href: '/dashboard/document-requirements', icon: FileText },
+    hasFeature('field_requirements') && { label: t('nav.fieldRequirements'), href: '/dashboard/field-requirements', icon: ListChecks },
+    hasFeature('visitor_analytics') && { label: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
+    hasFeature('alert_settings') && { label: 'Alert Settings', href: '/dashboard/admin/alerts', icon: Bell },
+  ].filter(Boolean) as { label: string; href: string; icon: typeof Shield }[] : []
 
   // Owner always has access; an admin needs the per-account grant the owner
   // toggles from Manage Accounts (session role alone doesn't carry that flag).
-  const canViewPortals = isOwner || (role === 'ADMIN' && !!myProfile?.canViewPortals)
+  const canViewPortals = (isOwner || (role === 'ADMIN' && !!myProfile?.canViewPortals)) && hasFeature('university_portals')
   const portalsNav = canViewPortals ? [
     { label: t('nav.portals'), href: '/dashboard/portals', icon: Globe },
   ] : []
 
   const platformNav = isSuperDeveloper ? [
     { label: t('platform.title'), href: '/dashboard/platform', icon: Building2 },
+    { label: t('packages.title'), href: '/dashboard/platform/packages', icon: Package },
     { label: t('campaigns.title'), href: '/dashboard/platform/campaigns', icon: Megaphone },
   ] : []
 

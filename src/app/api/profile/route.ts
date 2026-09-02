@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, getOrgEnabledFeatures } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
@@ -23,7 +23,11 @@ export async function GET(req: NextRequest) {
       where: { userId: user.id },
     })
 
-    return NextResponse.json({ profile, organization })
+    // null = unrestricted (no package on this org) — the dashboard sidebar
+    // shows every nav item in that case instead of filtering by this list.
+    const enabledFeatures = await getOrgEnabledFeatures(user.organizationId)
+
+    return NextResponse.json({ profile, organization, enabledFeatures })
   } catch {
     return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 })
   }

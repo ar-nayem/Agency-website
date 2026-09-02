@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
 import { orgWhere, isSameOrg, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
   try {
     const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!(await orgHasFeature(user.organizationId, 'finance'))) {
+      return NextResponse.json({ error: 'Finance is not included in your plan' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(req.url)
     const studentId = searchParams.get('studentId')
@@ -107,6 +110,9 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!(await orgHasFeature(user.organizationId, 'finance'))) {
+      return NextResponse.json({ error: 'Finance is not included in your plan' }, { status: 403 })
+    }
 
     const orgId = requireOrgId(user)
     if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })

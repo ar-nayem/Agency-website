@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import { parseBrowser, parseOS, parseDeviceType } from '@/src/lib/uaParse'
 
@@ -23,6 +23,9 @@ export async function GET(req: NextRequest) {
   try {
     const user = await getEffectiveUser(req)
     if (!user || !isOwner(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await orgHasFeature(user.organizationId, 'visitor_analytics'))) {
+      return NextResponse.json({ error: 'Visitor Analytics is not included in your plan' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(req.url)
     const days = Math.min(Math.max(Number(searchParams.get('days')) || 30, 1), 90)
