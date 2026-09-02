@@ -98,6 +98,15 @@ model Organization {
   // org-scoped mail, only a last resort when an org has no owner at all.
   alertEmail      String?
 
+  // Lifecycle mail bookkeeping. The two expiry fields store the
+  // accessExpiresAt value each notice was sent *for*, rather than a plain
+  // "sent" boolean: renewing moves accessExpiresAt, which no longer matches
+  // the stored value, so the next cycle's reminder fires again on its own
+  // with nothing to reset by hand.
+  welcomeSentAt              DateTime?
+  reminderSentForExpiry      DateTime?
+  expiredNoticeSentForExpiry DateTime?
+
   payments Payment[]
 
   users                User[]

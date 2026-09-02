@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Plus, Loader2, Building2, Users, GraduationCap, Ban, RotateCcw, LogIn, X } from 'lucide-react'
+import { Plus, Loader2, Building2, Users, GraduationCap, Ban, RotateCcw, LogIn, X, Trash2, CalendarClock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
@@ -18,6 +18,8 @@ interface Org {
   suspendedReason: string | null
   packageId: string | null
   package: { id: string; name: string } | null
+  accessExpiresAt: string | null
+  isTrial: boolean
   _count: { users: number; students: number }
 }
 
@@ -128,6 +130,63 @@ export default function PlatformPage() {
       else toast.error(t('platform.updateFailed'))
     } catch {
       toast.error(t('platform.updateFailed'))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  // Local date parts, not toISOString() — that shifts the day backwards
+  // for anyone east of UTC and would set the wrong expiry.
+  function toDateInput(d: Date) {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  }
+
+  async function setExpiry(org: Org, value: string) {
+    setBusyId(org.id)
+    try {
+      const res = await fetch(`/api/platform/organizations/${org.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ accessExpiresAt: value || null }),
+      })
+      if (res.ok) fetchOrgs()
+      else toast.error(t('platform.updateFailed'))
+    } catch {
+      toast.error(t('platform.updateFailed'))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function deleteOrg(org: Org) {
+    const typed = prompt(
+      t('platform.deletePrompt')
+        .replace('{name}', org.name)
+        .replace('{users}', String(org._count.users))
+        .replace('{students}', String(org._count.students))
+    )
+    if (typed === null) return
+    if (typed !== org.name) {
+      toast.error(t('platform.deleteNameMismatch'))
+      return
+    }
+    setBusyId(org.id)
+    try {
+      const res = await fetch(
+        `/api/platform/organizations/${org.id}?confirmName=${encodeURIComponent(typed)}`,
+        { method: 'DELETE', credentials: 'include' }
+      )
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(t('platform.deleted').replace('{files}', String(data.filesRemoved ?? 0)))
+        fetchOrgs()
+      } else {
+        toast.error(data.error || t('platform.deleteFailed'))
+      }
+    } catch {
+      toast.error(t('platform.deleteFailed'))
     } finally {
       setBusyId(null)
     }
@@ -253,6 +312,7 @@ export default function PlatformPage() {
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('platform.students')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('platform.plan')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('packages.assignPackage')}</th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('platform.accessUntil')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('platform.status')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
@@ -290,6 +350,27 @@ export default function PlatformPage() {
                       </select>
                     </td>
                     <td className="px-6 py-4">
+                      <input
+                        type="date"
+                        value={org.accessExpiresAt ? toDateInput(new Date(org.accessExpiresAt)) : ''}
+                        disabled={busyId === org.id}
+                        onChange={(e) => setExpiry(org, e.target.value)}
+                        title={t('platform.accessUntilHint')}
+                        className="px-2.5 py-1.5 border border-border rounded-lg text-xs bg-card disabled:opacity-50"
+                      />
+                      {org.accessExpiresAt && (
+                        <span className={`block text-[10px] mt-1 font-semibold uppercase tracking-wider ${
+                          new Date(org.accessExpiresAt) <= new Date()
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-muted-foreground'
+                        }`}>
+                          {new Date(org.accessExpiresAt) <= new Date()
+                            ? t('platform.expired')
+                            : t('platform.daysLeft').replace('{n}', String(Math.ceil((new Date(org.accessExpiresAt).getTime() - Date.now()) / 86400000)))}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${
                         org.status === 'ACTIVE'
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200'
@@ -317,6 +398,14 @@ export default function PlatformPage() {
                           }`}
                         >
                           {org.status === 'ACTIVE' ? <Ban className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => deleteOrg(org)}
+                          disabled={busyId === org.id}
+                          title={t('platform.delete')}
+                          className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors inline-flex disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

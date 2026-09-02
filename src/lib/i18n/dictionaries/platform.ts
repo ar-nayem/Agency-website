@@ -31,6 +31,15 @@ export const en = {
   createdOn: 'Created',
   noOrganizations: 'No organizations yet',
   slugTaken: 'That name is already taken by another organization',
+  accessUntil: 'Access Until',
+  accessUntilHint: 'Leave empty for open-ended access. A past date locks this organization out immediately.',
+  daysLeft: '{n} days left',
+  expired: 'Expired',
+  delete: 'Delete organization',
+  deletePrompt: 'PERMANENTLY delete "{name}"?\n\nThis removes {users} user account(s), {students} student record(s), and every document, transaction and message belonging to them. It cannot be undone.\n\nType the organization name to confirm:',
+  deleteNameMismatch: 'Name did not match — nothing was deleted',
+  deleted: 'Organization deleted ({files} files removed)',
+  deleteFailed: 'Failed to delete organization',
 }
 
 export const zh = {
@@ -66,4 +75,13 @@ export const zh = {
   createdOn: '创建于',
   noOrganizations: '暂无机构',
   slugTaken: '该名称已被其他机构使用',
+  accessUntil: '有效期至',
+  accessUntilHint: '留空表示无限期。设置为过去的日期将立即锁定该机构。',
+  daysLeft: '剩余 {n} 天',
+  expired: '已过期',
+  delete: '删除机构',
+  deletePrompt: '永久删除“{name}”？\n\n将移除 {users} 个用户账号、{students} 条学生记录，以及其全部文件、交易与消息。此操作无法撤销。\n\n请输入机构名称以确认：',
+  deleteNameMismatch: '名称不匹配 —— 未删除任何内容',
+  deleted: '机构已删除（已清理 {files} 个文件）',
+  deleteFailed: '删除机构失败',
 }

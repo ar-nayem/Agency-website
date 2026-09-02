@@ -172,3 +172,66 @@ export function statusUpdateTemplate(studentName: string, status: string, adminN
     <p><strong>Updated by:</strong> ${adminName}</p>
   `
 }
+
+// ---------------------------------------------------------------------------
+// Account lifecycle mail (welcome / expiry reminder / expired). Sent to the
+// organization's own alert address via sendNotification, never to a shared
+// developer inbox.
+// ---------------------------------------------------------------------------
+
+const LIFECYCLE_WRAP = (inner: string) => `
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#1e293b;max-width:560px;">
+    ${inner}
+    <p style="margin:24px 0 0;font-size:13px;color:#64748b;">
+      — Student Portal &middot;
+      <a href="https://portal.arnayem.top" style="color:#4f46e5;text-decoration:none;">portal.arnayem.top</a>
+    </p>
+  </div>
+`
+
+const LIFECYCLE_BUTTON = (label: string, href: string) => `
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
+    <tr><td bgcolor="#4f46e5" style="border-radius:10px;">
+      <a href="${href}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${label}</a>
+    </td></tr>
+  </table>
+`
+
+export function orgWelcomeTemplate(orgName: string, expiresAt: Date | null, loginUrl: string) {
+  const window = expiresAt
+    ? `<p style="margin:0 0 16px;">Your access runs until <strong>${expiresAt.toDateString()}</strong>.</p>`
+    : ''
+  return LIFECYCLE_WRAP(`
+    <h2 style="margin:0 0 14px;font-size:21px;color:#0f172a;">${orgName} is active</h2>
+    <p style="margin:0 0 16px;">Your account is switched on and your team can sign in now.</p>
+    ${window}
+    <p style="margin:0 0 16px;">A good first step is to add your team from <strong>Manage Accounts</strong>,
+    then set which documents students must upload under <strong>Doc Requirements</strong>.</p>
+    ${LIFECYCLE_BUTTON('Sign in', loginUrl)}
+    <p style="margin:0;">Reply to this email if you need a hand getting set up.</p>
+  `)
+}
+
+export function expiryReminderTemplate(orgName: string, daysLeft: number, expiresAt: Date, isTrial: boolean) {
+  const what = isTrial ? 'trial' : 'subscription'
+  return LIFECYCLE_WRAP(`
+    <h2 style="margin:0 0 14px;font-size:21px;color:#0f172a;">Your ${what} ends in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}</h2>
+    <p style="margin:0 0 16px;">Hi — <strong>${orgName}</strong>'s ${what} runs out on
+    <strong>${expiresAt.toDateString()}</strong>.</p>
+    <p style="margin:0 0 16px;">Nothing is deleted when it ends: your students, documents and records
+    stay exactly where they are. You just won't be able to sign in until it's renewed.</p>
+    <p style="margin:0 0 16px;">Reply to this email to continue and we'll sort it out.</p>
+  `)
+}
+
+export function expiredTemplate(orgName: string, expiresAt: Date, isTrial: boolean) {
+  const what = isTrial ? 'trial' : 'subscription'
+  return LIFECYCLE_WRAP(`
+    <h2 style="margin:0 0 14px;font-size:21px;color:#0f172a;">Your ${what} has ended</h2>
+    <p style="margin:0 0 16px;"><strong>${orgName}</strong>'s ${what} ended on
+    <strong>${expiresAt.toDateString()}</strong>, so sign-in is paused for now.</p>
+    <p style="margin:0 0 16px;"><strong>Your data is safe.</strong> Every student, document and
+    transaction is exactly as you left it, and comes straight back the moment you renew.</p>
+    <p style="margin:0 0 16px;">Reply to this email to pick up where you left off.</p>
+  `)
+}
