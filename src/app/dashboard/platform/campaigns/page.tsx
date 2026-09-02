@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock, Sparkles, Code2, Eye, PenLine } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { MERGE_FIELDS, applyMergeFields } from '@/src/lib/mergeFields'
+import { EMAIL_TEMPLATES } from '@/src/lib/emailTemplates'
+import { RichTextEditor } from '@/src/components/RichTextEditor'
 
 interface Lead {
   id: string
@@ -45,7 +47,7 @@ export default function CampaignsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
-  const [showPreview, setShowPreview] = useState(false)
+  const [mode, setMode] = useState<'visual' | 'html' | 'preview'>('visual')
 
   // Previewed against a real selected recipient, so a merge that will look
   // wrong in someone's inbox looks wrong here first.
@@ -54,8 +56,23 @@ export default function CampaignsPage() {
     ? { name: previewLead.name, email: previewLead.email, orgName: previewLead.organization?.name ?? null }
     : { name: '', email: '', orgName: '' }
 
+  // In visual mode the editor drops the token at the caret; in HTML mode
+  // there is no caret to speak of, so it appends.
   function insertToken(token: string) {
+    if (mode === 'visual') {
+      document.dispatchEvent(new CustomEvent('campaign-insert-token', { detail: token }))
+      return
+    }
     setBody((b) => (b ? `${b}${b.endsWith('\n') ? '' : ' '}${token}` : token))
+  }
+
+  function applyTemplate(id: string) {
+    const tpl = EMAIL_TEMPLATES.find((x) => x.id === id)
+    if (!tpl) return
+    if (body.trim() && !confirm(t('campaigns.templateConfirm'))) return
+    setBody(tpl.html)
+    if (!subject.trim()) setSubject(tpl.subject)
+    setMode('visual')
   }
   const [sending, setSending] = useState(false)
 
@@ -245,20 +262,51 @@ export default function CampaignsPage() {
               className="w-full px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-background"
             />
           </div>
+          {/* Templates */}
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" /> {t('campaigns.startFrom')}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {EMAIL_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => applyTemplate(tpl.id)}
+                  className="text-left px-3 py-2 rounded-xl border border-border hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition"
+                >
+                  <span className="block text-xs font-semibold text-foreground">{tpl.name}</span>
+                  <span className="block text-[11px] text-muted-foreground leading-snug mt-0.5">{tpl.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex-1 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+            <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
               <label className="block text-sm font-medium text-foreground">{t('campaigns.body')}</label>
-              <button
-                type="button"
-                onClick={() => setShowPreview((v) => !v)}
-                disabled={!previewLead}
-                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-40 disabled:no-underline"
-              >
-                {showPreview ? t('campaigns.hidePreview') : t('campaigns.showPreview')}
-              </button>
+              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-muted">
+                {([
+                  ['visual', PenLine, t('campaigns.modeVisual')],
+                  ['html', Code2, t('campaigns.modeHtml')],
+                  ['preview', Eye, t('campaigns.modePreview')],
+                ] as const).map(([key, Icon, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setMode(key)}
+                    disabled={key === 'preview' && !previewLead}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium inline-flex items-center gap-1.5 transition disabled:opacity-40 ${
+                      mode === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />{label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {showPreview && previewLead ? (
+            {mode === 'preview' && previewLead ? (
               <div className="w-full flex-1 px-3 py-2 border border-border rounded-xl bg-background overflow-auto">
                 <p className="text-[11px] text-muted-foreground mb-2">
                   {t('campaigns.previewAs').replace('{name}', previewLead.name)}
@@ -271,17 +319,21 @@ export default function CampaignsPage() {
                   dangerouslySetInnerHTML={{ __html: applyMergeFields(body, previewFor) }}
                 />
               </div>
-            ) : (
+            ) : mode === 'html' ? (
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={t('campaigns.bodyPlaceholder')}
-                rows={10}
+                rows={12}
                 className="w-full flex-1 px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono bg-background resize-none"
               />
+            ) : (
+              <RichTextEditor value={body} onChange={setBody} placeholder={t('campaigns.bodyPlaceholder')} />
             )}
 
-            <p className="text-xs text-muted-foreground mt-1">{t('campaigns.bodyHint')}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {mode === 'html' ? t('campaigns.bodyHintHtml') : t('campaigns.bodyHint')}
+            </p>
 
             <div className="mt-2.5">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
