@@ -53,6 +53,92 @@ export interface ParsedLead {
   name: string
   email: string
   organizationName: string | null
+  country?: string | null
+  website?: string | null
+  phone?: string | null
+  notes?: string | null
+}
+
+// Spreadsheet columns are matched by header name rather than position, so a
+// file's columns can be in any order and extra columns are simply ignored.
+// Several spellings map to the same field because people label these
+// differently in their own sheets.
+const HEADER_ALIASES: Record<keyof Omit<ParsedLead, never>, string[]> = {
+  name: ['name', 'full name', 'contact', 'contact name', 'person', 'agency contact'],
+  email: ['email', 'e-mail', 'email address', 'mail', 'contact email'],
+  organizationName: ['company', 'organization', 'organisation', 'agency', 'company name', 'organization name', 'business'],
+  country: ['country', 'location', 'region'],
+  website: ['website', 'web', 'url', 'site', 'web site'],
+  phone: ['phone', 'mobile', 'tel', 'telephone', 'contact number', 'whatsapp'],
+  notes: ['notes', 'note', 'comment', 'comments', 'remark', 'remarks'],
+}
+
+function normaliseHeader(h: string) {
+  return h.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
+}
+
+/** Maps a sheet's header row to field names; unknown columns map to null. */
+export function mapHeaders(headers: string[]): (keyof ParsedLead | null)[] {
+  return headers.map((raw) => {
+    const h = normaliseHeader(String(raw ?? ''))
+    for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+      if (aliases.includes(h)) return field as keyof ParsedLead
+    }
+    return null
+  })
+}
+
+export interface SheetParseResult {
+  leads: ParsedLead[]
+  invalid: string[]
+  /** True when no column could be identified as the email column. */
+  missingEmailColumn: boolean
+}
+
+// Takes rows already read off a sheet (first row = headers) and turns them
+// into leads. Rows without a usable email are reported rather than dropped
+// silently, so a mis-mapped file is obvious instead of half-importing.
+export function parseLeadRows(rows: unknown[][]): SheetParseResult {
+  const invalid: string[] = []
+  const leads: ParsedLead[] = []
+  const seen = new Set<string>()
+
+  if (rows.length === 0) return { leads, invalid, missingEmailColumn: true }
+
+  const headerRow = (rows[0] || []).map((c) => String(c ?? ''))
+  const mapped = mapHeaders(headerRow)
+  if (!mapped.includes('email')) return { leads, invalid, missingEmailColumn: true }
+
+  for (const row of rows.slice(1)) {
+    if (!row || row.every((c) => String(c ?? '').trim() === '')) continue
+
+    const rec: Partial<Record<keyof ParsedLead, string>> = {}
+    mapped.forEach((field, i) => {
+      if (!field) return
+      const value = String(row[i] ?? '').trim()
+      if (value) rec[field] = value
+    })
+
+    const email = rec.email ? normaliseEmail(rec.email) : ''
+    if (!email || !isValidEmail(email)) {
+      invalid.push(row.map((c) => String(c ?? '')).filter(Boolean).join(', ') || '(blank row)')
+      continue
+    }
+    if (seen.has(email)) continue
+    seen.add(email)
+
+    leads.push({
+      name: rec.name || email.split('@')[0],
+      email,
+      organizationName: rec.organizationName || null,
+      country: rec.country || null,
+      website: rec.website || null,
+      phone: rec.phone || null,
+      notes: rec.notes || null,
+    })
+  }
+
+  return { leads, invalid, missingEmailColumn: false }
 }
 
 export function parseLeadList(text: string): { leads: ParsedLead[]; invalid: string[] } {

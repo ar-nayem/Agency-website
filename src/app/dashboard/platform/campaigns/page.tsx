@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock, Sparkles, Code2, Eye, PenLine, UserPlus, Upload, Trash2, X } from 'lucide-react'
+import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock, Sparkles, Code2, Eye, PenLine, UserPlus, Upload, Trash2, X, FileSpreadsheet, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { MERGE_FIELDS, applyMergeFields } from '@/src/lib/mergeFields'
@@ -137,6 +137,36 @@ export default function CampaignsPage() {
       toast.error(t('campaigns.leadAddFailed'))
     } finally {
       setSavingLead(false)
+    }
+  }
+
+  async function uploadLeadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSavingLead(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/platform/leads/import', { method: 'POST', credentials: 'include', body: fd })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(
+          t('campaigns.importResult')
+            .replace('{added}', String(data.added))
+            .replace('{skipped}', String(data.skipped))
+        )
+        if (data.invalid?.length) toast.error(t('campaigns.importInvalid').replace('{n}', String(data.invalid.length)))
+        setShowAdd(null)
+        load()
+      } else {
+        toast.error(data.error || t('campaigns.leadAddFailed'))
+      }
+    } catch {
+      toast.error(t('campaigns.leadAddFailed'))
+    } finally {
+      setSavingLead(false)
+      // Clear the input so re-picking the same file fires change again.
+      e.target.value = ''
     }
   }
 
@@ -320,6 +350,31 @@ export default function CampaignsPage() {
 
           {showAdd === 'bulk' && (
             <form onSubmit={importLeads} className="p-4 border-b border-border bg-background/50 space-y-3">
+              <div className="rounded-xl border border-dashed border-border p-4 text-center">
+                <FileSpreadsheet className="w-6 h-6 text-indigo-600 mx-auto mb-2" />
+                <p className="text-sm font-medium text-foreground">{t('campaigns.uploadTitle')}</p>
+                <p className="text-[11px] text-muted-foreground mt-1 mb-3">{t('campaigns.uploadHint')}</p>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <label className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition inline-flex items-center gap-2 cursor-pointer">
+                    {savingLead ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {t('campaigns.chooseFile')}
+                    <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={uploadLeadFile} disabled={savingLead} />
+                  </label>
+                  <a
+                    href="/api/platform/leads/template"
+                    className="px-3.5 py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition inline-flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" /> {t('campaigns.downloadTemplate')}
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t('campaigns.orPaste')}</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
               <textarea
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}

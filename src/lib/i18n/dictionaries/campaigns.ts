@@ -67,6 +67,11 @@ export const en = {
   deleteLeadConfirm: 'Delete {name} from your leads?',
   leadDeleteFailed: 'Could not delete lead',
   sourceProspect: 'Prospect',
+  uploadTitle: 'Upload a CSV or Excel file',
+  uploadHint: 'First row must be headers. Name, Country, Website, Email, Company, Phone, Notes — any order, extra columns ignored.',
+  chooseFile: 'Choose file',
+  downloadTemplate: 'Template',
+  orPaste: 'or paste a list',
 }
 
 export const zh = {
@@ -138,4 +143,9 @@ export const zh = {
   deleteLeadConfirm: '将 {name} 从线索中删除？',
   leadDeleteFailed: '删除线索失败',
   sourceProspect: '潜在客户',
+  uploadTitle: '上传 CSV 或 Excel 文件',
+  uploadHint: '第一行必须是表头。Name、Country、Website、Email、Company、Phone、Notes —— 顺序不限，多余的列会被忽略。',
+  chooseFile: '选择文件',
+  downloadTemplate: '模板',
+  orPaste: '或粘贴列表',
 }
