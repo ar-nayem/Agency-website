@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { MERGE_FIELDS, applyMergeFields } from '@/src/lib/mergeFields'
 
 interface Lead {
   id: string
@@ -44,6 +45,18 @@ export default function CampaignsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
+  const [showPreview, setShowPreview] = useState(false)
+
+  // Previewed against a real selected recipient, so a merge that will look
+  // wrong in someone's inbox looks wrong here first.
+  const previewLead = leads.find((l) => selected.has(l.id)) || null
+  const previewFor = previewLead
+    ? { name: previewLead.name, email: previewLead.email, orgName: previewLead.organization?.name ?? null }
+    : { name: '', email: '', orgName: '' }
+
+  function insertToken(token: string) {
+    setBody((b) => (b ? `${b}${b.endsWith('\n') ? '' : ' '}${token}` : token))
+  }
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
@@ -233,15 +246,61 @@ export default function CampaignsPage() {
             />
           </div>
           <div className="flex-1 flex flex-col">
-            <label className="block text-sm font-medium text-foreground mb-1">{t('campaigns.body')}</label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder={t('campaigns.bodyPlaceholder')}
-              rows={10}
-              className="w-full flex-1 px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono bg-background resize-none"
-            />
+            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+              <label className="block text-sm font-medium text-foreground">{t('campaigns.body')}</label>
+              <button
+                type="button"
+                onClick={() => setShowPreview((v) => !v)}
+                disabled={!previewLead}
+                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-40 disabled:no-underline"
+              >
+                {showPreview ? t('campaigns.hidePreview') : t('campaigns.showPreview')}
+              </button>
+            </div>
+
+            {showPreview && previewLead ? (
+              <div className="w-full flex-1 px-3 py-2 border border-border rounded-xl bg-background overflow-auto">
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  {t('campaigns.previewAs').replace('{name}', previewLead.name)}
+                </p>
+                <p className="text-sm font-semibold text-foreground mb-3">
+                  {applyMergeFields(subject, previewFor) || <span className="text-muted-foreground font-normal">{t('campaigns.subject')}</span>}
+                </p>
+                <div
+                  className="text-sm text-foreground [&_a]:text-indigo-600 [&_a]:underline"
+                  dangerouslySetInnerHTML={{ __html: applyMergeFields(body, previewFor) }}
+                />
+              </div>
+            ) : (
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={t('campaigns.bodyPlaceholder')}
+                rows={10}
+                className="w-full flex-1 px-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono bg-background resize-none"
+              />
+            )}
+
             <p className="text-xs text-muted-foreground mt-1">{t('campaigns.bodyHint')}</p>
+
+            <div className="mt-2.5">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                {t('campaigns.personalise')}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {MERGE_FIELDS.map((f) => (
+                  <button
+                    key={f.token}
+                    type="button"
+                    onClick={() => insertToken(f.token)}
+                    title={t('campaigns.fallbackHint').replace('{value}', f.fallback || '—')}
+                    className="px-2 py-1 rounded-lg border border-border text-[11px] font-mono text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                  >
+                    {f.token}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <button
             onClick={send}

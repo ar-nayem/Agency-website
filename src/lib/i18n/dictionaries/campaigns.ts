@@ -37,6 +37,11 @@ export const en = {
   role: 'Role',
   organization: 'Organization',
   joined: 'Joined',
+  personalise: 'Personalise per recipient',
+  fallbackHint: 'Falls back to "{value}" when the recipient has no value',
+  showPreview: 'Preview',
+  hidePreview: 'Back to editing',
+  previewAs: 'Previewing as {name}',
 }
 
 export const zh = {
@@ -78,4 +83,9 @@ export const zh = {
   role: '角色',
   organization: '机构',
   joined: '加入时间',
+  personalise: '按收件人个性化',
+  fallbackHint: '收件人无此信息时显示“{value}”',
+  showPreview: '预览',
+  hidePreview: '返回编辑',
+  previewAs: '以 {name} 的视角预览',
 }

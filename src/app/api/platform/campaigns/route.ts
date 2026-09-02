@@ -5,6 +5,7 @@ import { getEffectiveUser } from '@/src/lib/session'
 import { SUPER_DEVELOPER, DELETED } from '@/src/lib/roles'
 import { sendMail } from '@/src/lib/email'
 import { unsubscribeToken } from '@/src/lib/campaignToken'
+import { applyMergeFields } from '@/src/lib/mergeFields'
 import { logActivity } from '@/src/lib/activity'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -107,8 +108,12 @@ async function sendCampaignInBackground(campaignId: string, subject: string, htm
   for (const recipient of recipients) {
     const token = unsubscribeToken(recipient.email)
     const unsubscribeUrl = `${origin}/api/public/unsubscribe?email=${encodeURIComponent(recipient.email)}&token=${token}`
+    // Personalised per recipient from their snapshotted name/org — subject
+    // included, since that's what decides whether the mail gets opened.
+    const personalSubject = applyMergeFields(subject, recipient)
+    const personalHtml = applyMergeFields(html, recipient)
     const fullHtml = `
-      ${html}
+      ${personalHtml}
       <hr style="margin-top:32px;border:none;border-top:1px solid #e5e7eb" />
       <p style="font-size:11px;color:#9ca3af;margin-top:12px">
         You're receiving this because you have an account on this platform.
@@ -117,7 +122,7 @@ async function sendCampaignInBackground(campaignId: string, subject: string, htm
     `
 
     try {
-      await sendMail(recipient.email, subject, fullHtml)
+      await sendMail(recipient.email, personalSubject, fullHtml)
       await prisma.campaignRecipient.update({
         where: { id: recipient.id },
         data: { status: 'SENT', sentAt: new Date() },
