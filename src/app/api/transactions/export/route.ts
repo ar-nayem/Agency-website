@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
     if (!(await orgHasFeature(user.organizationId, 'finance'))) {
       return NextResponse.json({ error: 'Finance is not included in your plan' }, { status: 403 })
     }
+    if (!(await orgHasFeature(user.organizationId, 'finance_export'))) {
+      return NextResponse.json({ error: 'Transaction Export is not included in your plan' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(req.url)
     const view = searchParams.get('view')

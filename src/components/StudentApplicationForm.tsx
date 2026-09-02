@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Save, Loader2, Upload, FileText, Image, Video, X, Plus, Trash2, FileImage } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { useFeatures } from '@/src/lib/FeaturesContext'
 
 interface EducationItem {
   degree: string
@@ -128,6 +129,7 @@ function buildDate(year: string, month: string, day: string) {
 export default function StudentApplicationForm({ mode, endpoints, initialDocCategories, initialFieldRequirements, onSuccess }: StudentApplicationFormProps) {
   const router = useRouter()
   const { t } = useLanguage()
+  const { has: hasFeature } = useFeatures()
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [pendingDocs, setPendingDocs] = useState<PendingDoc[]>([])
@@ -430,19 +432,23 @@ export default function StudentApplicationForm({ mode, endpoints, initialDocCate
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {mode === 'staff' && (
+      {mode === 'staff' && (hasFeature('student_template') || hasFeature('student_import')) && (
         <div className="flex items-center justify-end gap-2 flex-wrap">
-          <a
-            href="/api/students/template"
-            className="px-3.5 py-2 border border-border rounded-xl text-foreground hover:bg-muted transition flex items-center gap-2 text-sm font-medium"
-          >
-            <FileText className="w-4 h-4" /> {t('studentForm.downloadTemplate')}
-          </a>
-          <label className="px-3.5 py-2 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 rounded-xl hover:bg-indigo-100 transition flex items-center gap-2 text-sm font-medium cursor-pointer">
-            {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {t('studentForm.importFromExcel')}
-            <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel} disabled={importing} />
-          </label>
+          {hasFeature('student_template') && (
+            <a
+              href="/api/students/template"
+              className="px-3.5 py-2 border border-border rounded-xl text-foreground hover:bg-muted transition flex items-center gap-2 text-sm font-medium"
+            >
+              <FileText className="w-4 h-4" /> {t('studentForm.downloadTemplate')}
+            </a>
+          )}
+          {hasFeature('student_import') && (
+            <label className="px-3.5 py-2 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 rounded-xl hover:bg-indigo-100 transition flex items-center gap-2 text-sm font-medium cursor-pointer">
+              {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {t('studentForm.importFromExcel')}
+              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel} disabled={importing} />
+            </label>
+          )}
         </div>
       )}
 

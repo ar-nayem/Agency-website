@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { useFeatures } from '@/src/lib/FeaturesContext'
 import { LanguageToggle } from '@/src/components/LanguageToggle'
 import { ThemeToggle } from '@/src/components/ThemeToggle'
 
@@ -24,6 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const { data: session, update } = useSession()
   const { t } = useLanguage()
+  const { has: hasFeature } = useFeatures()
   const role = session?.user?.role
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
   const isOwner = role === 'OWNER'
@@ -38,7 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Student Portal', logo: null })
   const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Student Portal', logo: null })
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
-  const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean; enabledFeatures: string[] | null } | null>(null)
+  const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [exitingImpersonation, setExitingImpersonation] = useState(false)
   // Desktop-only icon-rail mode. Persisted so it survives navigation/reload;
@@ -113,10 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .then(data => {
           setMyAvatar(data?.profile?.avatar || null)
           if (data?.profile) {
-            setMyProfile({
-              name: data.profile.name, email: data.profile.email, canViewPortals: !!data.profile.canViewPortals,
-              enabledFeatures: Array.isArray(data.enabledFeatures) ? data.enabledFeatures : null,
-            })
+            setMyProfile({ name: data.profile.name, email: data.profile.email, canViewPortals: !!data.profile.canViewPortals })
           }
         })
         .catch(() => {})
@@ -124,40 +123,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [session?.user?.id, session?.user?.impersonatingOrgId, isSuperDeveloper])
 
   // Feature gating by the org's Package (see src/lib/features.ts), set by the
-  // super developer. `null` (not yet fetched, or no package assigned) means
-  // unrestricted — default to showing every item rather than flashing the
-  // sidebar empty on every page load; it only narrows down once a real
-  // package's feature list comes back.
-  const enabledFeatures = myProfile?.enabledFeatures ?? null
-  const hasFeature = (key: string) => enabledFeatures === null || enabledFeatures.includes(key)
+  // super developer, resolved once in FeaturesProvider. An org with no
+  // package assigned is unrestricted, so every item shows.
+  type NavItem = { label: string; href: string; icon: typeof LayoutDashboard }
+  const keep = (items: (NavItem | false)[]) => items.filter(Boolean) as NavItem[]
 
-  const baseNav = [
-    { label: t('nav.messages'), href: '/dashboard/messages', icon: MessageSquare },
+  const baseNav = keep([
+    hasFeature('messages') && { label: t('nav.messages'), href: '/dashboard/messages', icon: MessageSquare },
     { label: t('nav.settings'), href: '/dashboard/profile', icon: Settings },
-  ]
+  ])
 
-  const adminNav = isAdmin ? [
+  const adminNav = isAdmin ? keep([
     { label: t('nav.dashboard'), href: '/dashboard/admin', icon: LayoutDashboard },
     { label: t('nav.allStudents'), href: '/dashboard/students', icon: Users },
-    { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
+    hasFeature('student_create') && { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
     hasFeature('finance') && { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
     hasFeature('tasks') && { label: t('nav.tasks'), href: '/dashboard/tasks', icon: ListTodo },
     hasFeature('offers') && { label: 'Offers', href: '/dashboard/offers', icon: Megaphone },
     hasFeature('universities') && { label: t('nav.universities'), href: '/dashboard/universities', icon: GraduationCap },
-  ].filter(Boolean) as { label: string; href: string; icon: typeof LayoutDashboard }[] : [
+  ]) : keep([
     { label: t('nav.dashboard'), href: '/dashboard/agent', icon: LayoutDashboard },
     { label: t('nav.myStudents'), href: '/dashboard/students', icon: Users },
-    { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
-    ...(hasFeature('finance') ? [{ label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet }] : []),
-  ]
+    hasFeature('student_create') && { label: t('nav.addStudent'), href: '/dashboard/students/new', icon: UserPlus },
+    hasFeature('finance') && { label: t('nav.finance'), href: '/dashboard/finance', icon: Wallet },
+  ])
 
-  const ownerNav = isOwner ? [
+  const ownerNav = isOwner ? keep([
     hasFeature('manage_accounts') && { label: t('nav.manageAccounts'), href: '/dashboard/agents', icon: Shield },
     hasFeature('document_requirements') && { label: t('nav.docRequirements'), href: '/dashboard/document-requirements', icon: FileText },
     hasFeature('field_requirements') && { label: t('nav.fieldRequirements'), href: '/dashboard/field-requirements', icon: ListChecks },
     hasFeature('visitor_analytics') && { label: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
     hasFeature('alert_settings') && { label: 'Alert Settings', href: '/dashboard/admin/alerts', icon: Bell },
-  ].filter(Boolean) as { label: string; href: string; icon: typeof Shield }[] : []
+  ]) : []
 
   // Owner always has access; an admin needs the per-account grant the owner
   // toggles from Manage Accounts (session role alone doesn't carry that flag).

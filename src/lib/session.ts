@@ -113,8 +113,9 @@ export async function canAccessPortals(user: { id: string; role: string; organiz
 // Agents and owners always can; a plain admin needs the explicit grant —
 // same live-DB-read pattern as canAccessPortals, since the JWT only carries
 // role at login time and this flag can change mid-session.
-export async function canManageOfficialDocs(user: { id: string; role: string } | null): Promise<boolean> {
+export async function canManageOfficialDocs(user: { id: string; role: string; organizationId?: string | null } | null): Promise<boolean> {
   if (!user) return false
+  if (!(await orgHasFeature(user.organizationId ?? null, 'official_documents'))) return false
   if (user.role === 'OWNER' || user.role === 'AGENT') return true
   if (user.role !== 'ADMIN') return false
   const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { canManageOfficialDocuments: true } })

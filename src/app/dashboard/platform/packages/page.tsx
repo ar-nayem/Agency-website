@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Loader2, Package as PackageIcon, Building2, Pencil, Trash2, X, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
-import { FEATURES } from '@/src/lib/features'
+import { FEATURES, FEATURE_GROUPS, FEATURE_KEYS } from '@/src/lib/features'
 
 interface Pkg {
   id: string
@@ -18,7 +18,7 @@ interface Pkg {
   _count: { organizations: number }
 }
 
-const GROUPS = Array.from(new Set(FEATURES.map((f) => f.group)))
+const GROUPS = FEATURE_GROUPS
 
 export default function PackagesPage() {
   const { data: session } = useSession()
@@ -199,7 +199,12 @@ export default function PackagesPage() {
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">{t('packages.features')}</label>
-              <FeatureGrid selected={form.features} onToggle={(key) => setForm((p) => ({ ...p, features: toggleFeature(p.features, key) }))} t={t} />
+              <FeatureGrid
+                selected={form.features}
+                onToggle={(key) => setForm((p) => ({ ...p, features: toggleFeature(p.features, key) }))}
+                onSetAll={(keys) => setForm((p) => ({ ...p, features: keys }))}
+                t={t}
+              />
             </div>
 
             <button
@@ -258,6 +263,7 @@ export default function PackagesPage() {
                     <FeatureGrid
                       selected={editState.features}
                       onToggle={(key) => setEditState((p) => p && { ...p, features: toggleFeature(p.features, key) })}
+                      onSetAll={(keys) => setEditState((p) => p && { ...p, features: keys })}
                       t={t}
                     />
                     {editState.features.length === 0 && (
@@ -336,36 +342,77 @@ export default function PackagesPage() {
   )
 }
 
-function FeatureGrid({ selected, onToggle, t }: { selected: string[]; onToggle: (key: string) => void; t: (key: string) => string }) {
+function FeatureGrid({ selected, onToggle, onSetAll, t }: {
+  selected: string[]
+  onToggle: (key: string) => void
+  onSetAll: (keys: string[]) => void
+  t: (key: string) => string
+}) {
   return (
-    <div className="space-y-4">
-      {GROUPS.map((group) => (
-        <div key={group}>
-          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-            {group === 'Core' ? t('packages.groupCore') : group === 'Admin' ? t('packages.groupAdmin') : group}
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {FEATURES.filter((f) => f.group === group).map((f) => (
-              <label
-                key={f.key}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm cursor-pointer transition-colors ${
-                  selected.includes(f.key)
-                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
-                    : 'border-border text-muted-foreground hover:bg-muted'
-                }`}
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onSetAll(FEATURE_KEYS)}
+          className="px-2.5 py-1 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition"
+        >
+          {t('packages.selectAll')}
+        </button>
+        <button
+          type="button"
+          onClick={() => onSetAll([])}
+          className="px-2.5 py-1 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition"
+        >
+          {t('packages.clearAll')}
+        </button>
+        <span className="text-xs text-muted-foreground ml-1">{selected.length} / {FEATURE_KEYS.length}</span>
+      </div>
+
+      {GROUPS.map((group) => {
+        const groupFeatures = FEATURES.filter((f) => f.group === group)
+        const allOn = groupFeatures.every((f) => selected.includes(f.key))
+        return (
+          <div key={group}>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{group}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  const keys = groupFeatures.map((f) => f.key)
+                  onSetAll(allOn ? selected.filter((k) => !keys.includes(k)) : Array.from(new Set([...selected, ...keys])))
+                }}
+                className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline"
               >
-                <input
-                  type="checkbox"
-                  checked={selected.includes(f.key)}
-                  onChange={() => onToggle(f.key)}
-                  className="accent-indigo-600"
-                />
-                {f.label}
-              </label>
-            ))}
+                {allOn ? t('packages.clearAll') : t('packages.selectAll')}
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+              {groupFeatures.map((f) => (
+                <label
+                  key={f.key}
+                  title={f.hint}
+                  className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-sm cursor-pointer transition-colors ${
+                    selected.includes(f.key)
+                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
+                      : 'border-border hover:bg-muted'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(f.key)}
+                    onChange={() => onToggle(f.key)}
+                    className="accent-indigo-600 mt-0.5 shrink-0"
+                  />
+                  <span className="min-w-0">
+                    <span className={`block font-medium ${selected.includes(f.key) ? 'text-indigo-700 dark:text-indigo-300' : 'text-foreground'}`}>{f.label}</span>
+                    <span className="block text-[11px] text-muted-foreground leading-snug">{f.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

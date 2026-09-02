@@ -5,6 +5,14 @@ import { hash } from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotification, agentSignupTemplate } from '@/src/lib/email'
 import { logActivity } from '@/src/lib/activity'
+import { parseFeatures } from '@/src/lib/features'
+
+// An org whose package excludes the Agent Invite Link can't be joined through
+// one — its existing code stops resolving, exactly like a regenerated or
+// suspended-org code, so a held link reveals nothing about why it stopped.
+function orgAllowsInvite(org: { package: { features: string } | null }) {
+  return !org.package || parseFeatures(org.package.features).includes('agent_invite_link')
+}
 
 // Public — lets the register page confirm an invite code is real (and show
 // which organization the visitor is about to join) before they fill out the form.
@@ -13,8 +21,11 @@ export async function GET(req: NextRequest) {
     const code = new URL(req.url).searchParams.get('code')
     if (!code) return NextResponse.json({ error: 'Missing invite code' }, { status: 400 })
 
-    const org = await prisma.organization.findUnique({ where: { inviteCode: code }, select: { name: true, status: true } })
-    if (!org || org.status !== 'ACTIVE') {
+    const org = await prisma.organization.findUnique({
+      where: { inviteCode: code },
+      select: { name: true, status: true, package: { select: { features: true } } },
+    })
+    if (!org || org.status !== 'ACTIVE' || !orgAllowsInvite(org)) {
       return NextResponse.json({ error: 'This invite link is invalid or no longer active' }, { status: 404 })
     }
 
@@ -40,8 +51,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'A valid invite link is required to sign up' }, { status: 400 })
     }
 
-    const org = await prisma.organization.findUnique({ where: { inviteCode: code } })
-    if (!org || org.status !== 'ACTIVE') {
+    const org = await prisma.organization.findUnique({
+      where: { inviteCode: code },
+      include: { package: { select: { features: true } } },
+    })
+    if (!org || org.status !== 'ACTIVE' || !orgAllowsInvite(org)) {
       return NextResponse.json({ error: 'This invite link is invalid or no longer active' }, { status: 400 })
     }
 

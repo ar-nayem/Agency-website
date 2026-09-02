@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
+import { useFeatures } from '@/src/lib/FeaturesContext'
 
 type ChatMessage = { role: 'user' | 'bot'; text: string }
 
 export function ChatWidget() {
   const { data: session } = useSession()
+  const { has: hasFeature } = useFeatures()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -46,6 +48,11 @@ export function ChatWidget() {
       setSending(false)
     }
   }
+
+  // Logged-out visitors have no org context to gate against (same single-domain
+  // limitation as the public offers endpoint), so the widget stays available to
+  // them; a signed-in user whose package excludes the chatbot doesn't get it.
+  if (session?.user && !hasFeature('chatbot')) return null
 
   return (
     <div className="fixed bottom-5 right-5 z-50">

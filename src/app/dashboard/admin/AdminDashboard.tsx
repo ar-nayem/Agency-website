@@ -10,6 +10,7 @@ import {
   ListTodo, Clock
 } from 'lucide-react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { useFeatures } from '@/src/lib/FeaturesContext'
 
 interface AdminDashboardProps {
   stats: {
@@ -97,6 +98,7 @@ function StatusDonut({ slices, total }: { slices: DonutSlice[]; total: number })
 
 export default function AdminDashboard({ stats, recentStudents, canExportBackup }: AdminDashboardProps) {
   const { t, formatDate, formatDateTime } = useLanguage()
+  const { has: hasFeature } = useFeatures()
   const { data: session } = useSession()
   const isOwner = session?.user?.role === 'OWNER'
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -196,7 +198,7 @@ export default function AdminDashboard({ stats, recentStudents, canExportBackup 
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('dashboard.adminTitle')}</h1>
           <p className="text-muted-foreground mt-1 text-sm">{t('dashboard.overview')}</p>
         </div>
-        {canExportBackup && (
+        {canExportBackup && hasFeature('backup_export') && (
           <a
             href="/api/backup/export"
             className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-indigo-500/20 shrink-0"

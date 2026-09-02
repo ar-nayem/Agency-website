@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 
@@ -10,6 +10,9 @@ export async function GET(req: NextRequest) {
     const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER' || !user.organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'agent_invite_link'))) {
+      return NextResponse.json({ error: 'Agent Invite Link is not included in your plan' }, { status: 403 })
     }
 
     const org = await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { inviteCode: true } })
@@ -28,6 +31,9 @@ export async function POST(req: NextRequest) {
     const user = await getEffectiveUser(req)
     if (!user || user.role !== 'OWNER' || !user.organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'agent_invite_link'))) {
+      return NextResponse.json({ error: 'Agent Invite Link is not included in your plan' }, { status: 403 })
     }
 
     const org = await prisma.organization.update({

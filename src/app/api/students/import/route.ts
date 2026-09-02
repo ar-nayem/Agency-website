@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { parseStudentWorkbook, REQUIRED_FLAT_KEYS } from '@/src/lib/studentExcel'
@@ -12,6 +12,9 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!(await orgHasFeature(user.organizationId, 'student_import'))) {
+      return NextResponse.json({ error: 'Excel Import is not included in your plan' }, { status: 403 })
+    }
 
     const orgId = requireOrgId(user)
     if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })

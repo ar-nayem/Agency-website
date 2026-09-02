@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
 import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotification, studentSubmissionTemplate } from '@/src/lib/email'
@@ -71,6 +71,9 @@ export async function POST(req: NextRequest) {
     if (!user) {
       console.log('POST /api/students: No user from session')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'student_create'))) {
+      return NextResponse.json({ error: 'Adding students is not included in your plan' }, { status: 403 })
     }
 
     const orgId = requireOrgId(user)

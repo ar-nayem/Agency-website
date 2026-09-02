@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { NextRequest, NextResponse } from 'next/server'
 
 const MAX_SIZE = 30 * 1024 * 1024
@@ -13,6 +13,9 @@ export async function POST(req: NextRequest) {
     const user = await getEffectiveUser(req)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!(await orgHasFeature(user.organizationId, 'messages'))) {
+      return NextResponse.json({ error: 'Messages is not included in your plan' }, { status: 403 })
     }
 
     const formData = await req.formData()

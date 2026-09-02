@@ -7,6 +7,7 @@ import { Toaster } from 'react-hot-toast'
 import { LanguageProvider } from '@/src/lib/i18n/LanguageContext'
 import { ThemeProvider } from '@/src/lib/theme/ThemeContext'
 import { ChatWidget } from '@/src/components/ChatWidget'
+import { FeaturesProvider } from '@/src/lib/FeaturesContext'
 
 function VisitorTracker() {
   const pathname = usePathname()
@@ -32,10 +33,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <ThemeProvider>
         <LanguageProvider>
-          <VisitorTracker />
-          {children}
-          <ChatWidget />
-          <Toaster position="top-right" />
+          <FeaturesProvider>
+            <VisitorTracker />
+            {children}
+            <ChatWidget />
+            <Toaster position="top-right" />
+          </FeaturesProvider>
         </LanguageProvider>
       </ThemeProvider>
     </SessionProvider>

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { useFeatures } from '@/src/lib/FeaturesContext'
 
 export default function StudentsPage() {
   return (
@@ -22,6 +23,7 @@ export default function StudentsPage() {
 function StudentsPageInner() {
   const { data: session } = useSession()
   const { t, formatDate } = useLanguage()
+  const { has: hasFeature } = useFeatures()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [students, setStudents] = useState<any[]>([])
@@ -234,20 +236,24 @@ function StudentsPageInner() {
           <p className="text-muted-foreground mt-1 text-sm">{t('students.manageAndReview')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={openShareModal}
-            className="bg-card border border-border text-foreground px-4 py-2.5 rounded-xl font-medium hover:bg-muted transition flex items-center gap-2 text-sm shadow-sm"
-          >
-            <Link2 className="w-4 h-4" />
-            {t('intake.shareLinkButton')}
-          </button>
-          <Link
-            href="/dashboard/students/new"
-            className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition flex items-center gap-2 text-sm shadow-sm shadow-indigo-500/20"
-          >
-            <UserCheck className="w-4 h-4" />
-            {t('nav.addStudent')}
-          </Link>
+          {hasFeature('intake_link') && (
+            <button
+              onClick={openShareModal}
+              className="bg-card border border-border text-foreground px-4 py-2.5 rounded-xl font-medium hover:bg-muted transition flex items-center gap-2 text-sm shadow-sm"
+            >
+              <Link2 className="w-4 h-4" />
+              {t('intake.shareLinkButton')}
+            </button>
+          )}
+          {hasFeature('student_create') && (
+            <Link
+              href="/dashboard/students/new"
+              className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition flex items-center gap-2 text-sm shadow-sm shadow-indigo-500/20"
+            >
+              <UserCheck className="w-4 h-4" />
+              {t('nav.addStudent')}
+            </Link>
+          )}
         </div>
       </div>
 
@@ -316,21 +322,25 @@ function StudentsPageInner() {
 
           {isAdmin && (
             <>
-              <button
-                onClick={exportToExcel}
-                className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-emerald-500/20"
-              >
-                <Download className="w-4 h-4" />
-                {t('students.exportExcel')}
-              </button>
-              <button
-                onClick={batchDownload}
-                disabled={selectedStudents.length === 0}
-                className="px-4 py-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition flex items-center gap-2 text-sm font-medium disabled:opacity-50 shadow-sm shadow-violet-500/20"
-              >
-                <Download className="w-4 h-4" />
-                {t('students.batchDownload')} ({selectedStudents.length})
-              </button>
+              {hasFeature('data_export') && (
+                <button
+                  onClick={exportToExcel}
+                  className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-emerald-500/20"
+                >
+                  <Download className="w-4 h-4" />
+                  {t('students.exportExcel')}
+                </button>
+              )}
+              {hasFeature('document_batch_download') && (
+                <button
+                  onClick={batchDownload}
+                  disabled={selectedStudents.length === 0}
+                  className="px-4 py-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition flex items-center gap-2 text-sm font-medium disabled:opacity-50 shadow-sm shadow-violet-500/20"
+                >
+                  <Download className="w-4 h-4" />
+                  {t('students.batchDownload')} ({selectedStudents.length})
+                </button>
+              )}
               <button
                 onClick={batchDelete}
                 disabled={selectedStudents.length === 0}

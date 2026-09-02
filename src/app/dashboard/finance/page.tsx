@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { useFeatures } from '@/src/lib/FeaturesContext'
 import { formatMoney, TRANSACTION_CATEGORIES } from '@/src/lib/money'
 import { TransactionFormModal, CATEGORY_KEYS, STATUS_KEYS } from '@/src/components/TransactionFormModal'
 
@@ -21,6 +22,7 @@ function toISODate(d: Date) { return d.toISOString().slice(0, 10) }
 export default function FinancePage() {
   const { data: session } = useSession()
   const { t, formatDate } = useLanguage()
+  const { has: hasFeature } = useFeatures()
 
   const [transactions, setTransactions] = useState<any[]>([])
   const [students, setStudents] = useState<any[]>([])
@@ -189,9 +191,11 @@ export default function FinancePage() {
           <p className="text-muted-foreground mt-1 text-sm">{t('finance.subtitleMine')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportExcel} className="px-4 py-2.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-xl hover:bg-emerald-100 transition flex items-center gap-2 text-sm font-medium">
-            <Download className="w-4 h-4" /> {t('finance.exportExcel')}
-          </button>
+          {hasFeature('finance_export') && (
+            <button onClick={exportExcel} className="px-4 py-2.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-xl hover:bg-emerald-100 transition flex items-center gap-2 text-sm font-medium">
+              <Download className="w-4 h-4" /> {t('finance.exportExcel')}
+            </button>
+          )}
           <button onClick={() => setShowAddModal(true)} className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-indigo-500/20">
             <Plus className="w-4 h-4" /> {t('finance.addTransaction')}
           </button>
@@ -415,7 +419,7 @@ export default function FinancePage() {
                         <Link href={`/dashboard/students/${tx.studentId}/finance`} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">
                           <Eye className="w-4 h-4" />
                         </Link>
-                        {tx.type === 'INCOME' && (
+                        {tx.type === 'INCOME' && hasFeature('finance_receipt') && (
                           <Link href={`/dashboard/students/${tx.studentId}/finance/receipt/${tx.id}`} target="_blank" className="text-slate-500 hover:text-slate-700 p-1.5 rounded-lg hover:bg-muted transition-colors inline-flex" title={t('finance.receiptTitle')}>
                             <Receipt className="w-4 h-4" />
                           </Link>

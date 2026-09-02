@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, canAccessPortals } from '@/src/lib/session'
+import { getEffectiveUser, canAccessPortals, orgHasFeature } from '@/src/lib/session'
 import { orgWhereVia } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
@@ -11,6 +11,9 @@ export async function GET(req: NextRequest) {
   try {
     const user = await getEffectiveUser(req)
     if (!user || !(await canAccessPortals(user))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await orgHasFeature(user.organizationId, 'portal_student_export'))) {
+      return NextResponse.json({ error: 'Portal Student Export is not included in your plan' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(req.url)
     const portalId = searchParams.get('portalId')

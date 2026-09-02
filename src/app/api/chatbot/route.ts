@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { getChatbotReply } from '@/src/lib/chatbot'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -17,6 +17,12 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await getEffectiveUser(req)
+    // A logged-out visitor has no org to gate against (single-domain
+    // deployment, same limitation as the public offers endpoint) — only a
+    // signed-in user's package can switch the assistant off.
+    if (user && !(await orgHasFeature(user.organizationId, 'chatbot'))) {
+      return NextResponse.json({ error: 'The assistant is not included in your plan' }, { status: 403 })
+    }
     const result = await getChatbotReply(message, user)
     return NextResponse.json(result)
   } catch (error) {

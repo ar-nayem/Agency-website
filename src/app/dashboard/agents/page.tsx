@@ -10,10 +10,12 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { useFeatures } from '@/src/lib/FeaturesContext'
 
 export default function AgentsPage() {
   const { data: session } = useSession()
   const { t, formatDate } = useLanguage()
+  const { has: hasFeature } = useFeatures()
   const router = useRouter()
   const [agents, setAgents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -320,37 +322,39 @@ export default function AgentsPage() {
         </button>
       </div>
 
-      <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Link2 className="w-4 h-4 text-indigo-600" />
-          <h3 className="text-sm font-semibold text-foreground">{t('agentsPage.inviteLinkTitle')}</h3>
+      {hasFeature('agent_invite_link') && (
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Link2 className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-sm font-semibold text-foreground">{t('agentsPage.inviteLinkTitle')}</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">{t('agentsPage.inviteLinkHint')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              readOnly
+              value={inviteCode ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?code=${inviteCode}` : ''}
+              placeholder={t('common.loading')}
+              className="flex-1 min-w-[240px] px-3 py-2 border border-border rounded-xl bg-muted text-sm text-foreground"
+            />
+            <button
+              onClick={copyInviteLink}
+              disabled={!inviteCode}
+              className="px-3 py-2 border border-border rounded-xl text-sm font-medium hover:bg-muted transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {inviteCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+              {inviteCopied ? t('agentsPage.copied') : t('agentsPage.copy')}
+            </button>
+            <button
+              onClick={regenerateInvite}
+              disabled={regenerating || !inviteCode}
+              className="px-3 py-2 border border-border rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {t('agentsPage.regenerate')}
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">{t('agentsPage.inviteLinkHint')}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            readOnly
-            value={inviteCode ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register?code=${inviteCode}` : ''}
-            placeholder={t('common.loading')}
-            className="flex-1 min-w-[240px] px-3 py-2 border border-border rounded-xl bg-muted text-sm text-foreground"
-          />
-          <button
-            onClick={copyInviteLink}
-            disabled={!inviteCode}
-            className="px-3 py-2 border border-border rounded-xl text-sm font-medium hover:bg-muted transition flex items-center gap-1.5 disabled:opacity-50"
-          >
-            {inviteCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-            {inviteCopied ? t('agentsPage.copied') : t('agentsPage.copy')}
-          </button>
-          <button
-            onClick={regenerateInvite}
-            disabled={regenerating || !inviteCode}
-            className="px-3 py-2 border border-border rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition flex items-center gap-1.5 disabled:opacity-50"
-          >
-            {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {t('agentsPage.regenerate')}
-          </button>
-        </div>
-      </div>
+      )}
 
       {showForm && (
         <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
@@ -482,9 +486,9 @@ export default function AgentsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.email')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.role')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.managedBy')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.portalAccess')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.backupAccess')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.officialDocsAccess')}</th>
+                {hasFeature('university_portals') && <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.portalAccess')}</th>}
+                {hasFeature('backup_export') && <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.backupAccess')}</th>}
+                {hasFeature('official_documents') && <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.officialDocsAccess')}</th>}
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('common.status')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.students')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('agentsPage.created')}</th>
@@ -525,7 +529,7 @@ export default function AgentsPage() {
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4">
+                  {hasFeature('university_portals') && <td className="px-6 py-4">
                     {user.role === 'ADMIN' ? (
                       <button
                         onClick={() => togglePortalAccess(user.id, !user.canViewPortals)}
@@ -542,8 +546,8 @@ export default function AgentsPage() {
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
-                  </td>
-                  <td className="px-6 py-4">
+                  </td>}
+                  {hasFeature('backup_export') && <td className="px-6 py-4">
                     {user.role === 'ADMIN' ? (
                       <button
                         onClick={() => toggleBackupAccess(user.id, !user.canExportBackup)}
@@ -560,8 +564,8 @@ export default function AgentsPage() {
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
-                  </td>
-                  <td className="px-6 py-4">
+                  </td>}
+                  {hasFeature('official_documents') && <td className="px-6 py-4">
                     {user.role === 'ADMIN' ? (
                       <button
                         onClick={() => toggleOfficialDocsAccess(user.id, !user.canManageOfficialDocuments)}
@@ -578,7 +582,7 @@ export default function AgentsPage() {
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
-                  </td>
+                  </td>}
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
                       user.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400'

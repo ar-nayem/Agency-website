@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { requireOrgId } from '@/src/lib/orgScope'
 import { FLAT_FIELDS, NESTED_SECTIONS } from '@/src/lib/studentExcel'
 import { logActivity } from '@/src/lib/activity'
@@ -23,6 +23,9 @@ export async function GET(req: NextRequest) {
   try {
     const user = await getEffectiveUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!(await orgHasFeature(user.organizationId, 'backup_export'))) {
+      return NextResponse.json({ error: 'Full Backup is not included in your plan' }, { status: 403 })
+    }
 
     if (user.role !== 'OWNER') {
       if (user.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

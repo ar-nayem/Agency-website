@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react'
 import { ArrowLeft, Plus, Pencil, Trash2, TrendingUp, TrendingDown, Wallet, Clock3, Receipt, Check, X, Banknote } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { useFeatures } from '@/src/lib/FeaturesContext'
 import { formatMoney } from '@/src/lib/money'
 import { TransactionFormModal, CATEGORY_KEYS, PAYMENT_METHOD_KEYS, STATUS_KEYS } from '@/src/components/TransactionFormModal'
 
@@ -14,6 +15,7 @@ export default function StudentFinancePage() {
   const { id } = useParams()
   const studentId = id as string
   const { t, formatDate } = useLanguage()
+  const { has: hasFeature } = useFeatures()
   const { data: session } = useSession()
   const role = session?.user?.role
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
@@ -314,7 +316,7 @@ export default function StudentFinancePage() {
                     <td className="px-6 py-4 text-sm text-muted-foreground max-w-[200px] truncate">{tx.description || '-'}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
-                        {tx.type === 'INCOME' && (isAdmin || tx.createdById === session?.user?.id) && (
+                        {tx.type === 'INCOME' && hasFeature('finance_receipt') && (isAdmin || tx.createdById === session?.user?.id) && (
                           <Link href={`/dashboard/students/${studentId}/finance/receipt/${tx.id}`} target="_blank" className="text-slate-500 hover:text-slate-700 p-1.5 rounded-lg hover:bg-muted transition-colors inline-flex" title={t('finance.receiptTitle')}>
                             <Receipt className="w-4 h-4" />
                           </Link>

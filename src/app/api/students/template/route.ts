@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
@@ -10,6 +10,9 @@ import { buildStudentWorkbook } from '@/src/lib/studentExcel'
 export async function GET(req: NextRequest) {
   const user = await getEffectiveUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await orgHasFeature(user.organizationId, 'student_template'))) {
+    return NextResponse.json({ error: 'Excel Template is not included in your plan' }, { status: 403 })
+  }
 
   const requirements = await prisma.documentRequirement.findMany({
     where: { active: true, isRequired: true, ...orgWhere(user) },
