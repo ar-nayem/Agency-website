@@ -24,13 +24,20 @@ export default function AnalyticsPage() {
     if (chartRef.current) chartRef.current.scrollLeft = chartRef.current.scrollWidth
   }, [data])
 
+  // session.user.role is the *effective* role — it already reads 'OWNER'
+  // while a platform operator is impersonating an org, so this covers both
+  // "my own org's traffic" and, for a non-impersonating SUPER_DEVELOPER,
+  // the whole deployment. The API applies the same rule when scoping rows.
+  const canView = session?.user?.role === 'OWNER' || session?.user?.role === 'SUPER_DEVELOPER'
+  const isPlatformView = session?.user?.role === 'SUPER_DEVELOPER'
+
   useEffect(() => {
-    if (session && session.user?.role !== 'OWNER') {
+    if (session && !canView) {
       router.push('/dashboard')
       return
     }
-    if (session?.user?.role === 'OWNER') fetchSummary()
-  }, [session, days])
+    if (canView) fetchSummary()
+  }, [session, days, canView])
 
   async function fetchSummary() {
     setLoading(true)
@@ -45,7 +52,7 @@ export default function AnalyticsPage() {
     }
   }
 
-  if (session && session.user?.role !== 'OWNER') return null
+  if (session && !canView) return null
   if (loading || !data) return <div className="p-10 text-center text-muted-foreground text-sm">{t('common.loading')}</div>
 
   const maxDaily = Math.max(...data.daily.map((d: any) => d.count), 1)
@@ -58,7 +65,9 @@ export default function AnalyticsPage() {
           <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-indigo-600" /> {t('analytics.title')}
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">{t('analytics.subtitle')}</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {isPlatformView ? t('analytics.subtitlePlatform') : t('analytics.subtitle')}
+          </p>
         </div>
         <select
           value={days}

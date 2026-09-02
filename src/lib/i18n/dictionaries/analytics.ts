@@ -24,6 +24,7 @@ export const en = {
   anonymous: 'Anonymous',
   noData: 'No data yet',
   loadFailed: 'Failed to load analytics',
+  subtitlePlatform: 'Traffic across every organization on this deployment',
 }
 
 export const zh = {
@@ -52,4 +53,5 @@ export const zh = {
   anonymous: '匿名',
   noData: '暂无数据',
   loadFailed: '加载分析数据失败',
+  subtitlePlatform: '本部署上所有机构的访问数据',
 }
