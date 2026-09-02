@@ -26,13 +26,21 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Match the exact-case email the link was generated for (User.email is
-    // stored as typed at signup, not lowercased) — the token check above
-    // already guarantees this address was the real recipient.
-    await prisma.user.updateMany({
-      where: { email: email.trim() },
-      data: { marketingOptOut: true },
-    })
+    // Opt out on both sides: a recipient may be a portal account holder, a
+    // manually added prospect, or (after signing up) both. User.email is
+    // stored as typed at signup while Lead.email is lowercased on write, so
+    // each is matched in its own form. The token check above already
+    // guarantees this address was the real recipient.
+    await Promise.all([
+      prisma.user.updateMany({
+        where: { email: email.trim() },
+        data: { marketingOptOut: true },
+      }),
+      prisma.lead.updateMany({
+        where: { email: email.trim().toLowerCase() },
+        data: { marketingOptOut: true },
+      }),
+    ])
   } catch (error) {
     console.error('Unsubscribe error:', error)
     return page('Something went wrong. Please try again later.')

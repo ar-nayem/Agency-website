@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock, Sparkles, Code2, Eye, PenLine } from 'lucide-react'
+import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock, Sparkles, Code2, Eye, PenLine, UserPlus, Upload, Trash2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { MERGE_FIELDS, applyMergeFields } from '@/src/lib/mergeFields'
@@ -13,13 +13,16 @@ import { RichTextEditor } from '@/src/components/RichTextEditor'
 
 interface Lead {
   id: string
+  kind: 'user' | 'lead'
+  rawId: string
   name: string
   email: string
-  role: string
+  organizationName: string | null
+  role: string | null
+  source: 'ACCOUNT' | 'MANUAL' | 'IMPORT'
   isActive: boolean
   marketingOptOut: boolean
   createdAt: string
-  organization: { id: string; name: string } | null
 }
 
 interface CampaignSummary {
@@ -53,7 +56,7 @@ export default function CampaignsPage() {
   // wrong in someone's inbox looks wrong here first.
   const previewLead = leads.find((l) => selected.has(l.id)) || null
   const previewFor = previewLead
-    ? { name: previewLead.name, email: previewLead.email, orgName: previewLead.organization?.name ?? null }
+    ? { name: previewLead.name, email: previewLead.email, orgName: previewLead.organizationName }
     : { name: '', email: '', orgName: '' }
 
   // In visual mode the editor drops the token at the caret; in HTML mode
@@ -75,6 +78,82 @@ export default function CampaignsPage() {
     setMode('visual')
   }
   const [sending, setSending] = useState(false)
+  const [showAdd, setShowAdd] = useState<'single' | 'bulk' | null>(null)
+  const [savingLead, setSavingLead] = useState(false)
+  const [newLead, setNewLead] = useState({ name: '', email: '', organizationName: '', phone: '', country: '', notes: '' })
+  const [bulkText, setBulkText] = useState('')
+
+  async function addLead(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingLead(true)
+    try {
+      const res = await fetch('/api/platform/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(newLead),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(t('campaigns.leadAdded'))
+        setNewLead({ name: '', email: '', organizationName: '', phone: '', country: '', notes: '' })
+        setShowAdd(null)
+        load()
+      } else {
+        toast.error(data.error || t('campaigns.leadAddFailed'))
+      }
+    } catch {
+      toast.error(t('campaigns.leadAddFailed'))
+    } finally {
+      setSavingLead(false)
+    }
+  }
+
+  async function importLeads(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingLead(true)
+    try {
+      const res = await fetch('/api/platform/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ bulk: bulkText }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(
+          t('campaigns.importResult')
+            .replace('{added}', String(data.added))
+            .replace('{skipped}', String(data.skipped))
+        )
+        if (data.invalid?.length) toast.error(t('campaigns.importInvalid').replace('{n}', String(data.invalid.length)))
+        setBulkText('')
+        setShowAdd(null)
+        load()
+      } else {
+        toast.error(data.error || t('campaigns.leadAddFailed'))
+      }
+    } catch {
+      toast.error(t('campaigns.leadAddFailed'))
+    } finally {
+      setSavingLead(false)
+    }
+  }
+
+  async function deleteLead(lead: Lead) {
+    if (!confirm(t('campaigns.deleteLeadConfirm').replace('{name}', lead.name))) return
+    try {
+      const res = await fetch(`/api/platform/leads/${lead.rawId}`, { method: 'DELETE', credentials: 'include' })
+      if (res.ok) {
+        setSelected((prev) => { const next = new Set(prev); next.delete(lead.id); return next })
+        load()
+      } else {
+        toast.error(t('campaigns.leadDeleteFailed'))
+      }
+    } catch {
+      toast.error(t('campaigns.leadDeleteFailed'))
+    }
+  }
 
   useEffect(() => {
     if (session && session.user?.actualRole !== 'SUPER_DEVELOPER') {
@@ -108,7 +187,7 @@ export default function CampaignsPage() {
       (l) =>
         l.name.toLowerCase().includes(q) ||
         l.email.toLowerCase().includes(q) ||
-        (l.organization?.name || '').toLowerCase().includes(q)
+        (l.organizationName || '').toLowerCase().includes(q)
     )
   }, [eligibleLeads, search])
 
@@ -196,8 +275,70 @@ export default function CampaignsPage() {
               <Users className="w-4 h-4" /> {t('campaigns.leads')}
               <span className="text-muted-foreground font-normal">({eligibleLeads.length})</span>
             </div>
-            <span className="text-xs font-medium text-indigo-600">{t('campaigns.selected').replace('{count}', String(selected.size))}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-indigo-600">{t('campaigns.selected').replace('{count}', String(selected.size))}</span>
+              <button
+                type="button"
+                onClick={() => setShowAdd(showAdd === 'single' ? null : 'single')}
+                className="px-2.5 py-1 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-background hover:text-foreground transition inline-flex items-center gap-1.5"
+              >
+                <UserPlus className="w-3.5 h-3.5" /> {t('campaigns.addLead')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdd(showAdd === 'bulk' ? null : 'bulk')}
+                className="px-2.5 py-1 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-background hover:text-foreground transition inline-flex items-center gap-1.5"
+              >
+                <Upload className="w-3.5 h-3.5" /> {t('campaigns.importLeads')}
+              </button>
+            </div>
           </div>
+
+          {showAdd === 'single' && (
+            <form onSubmit={addLead} className="p-4 border-b border-border bg-background/50 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <input required value={newLead.name} onChange={(e) => setNewLead((p) => ({ ...p, name: e.target.value }))}
+                  placeholder={t('campaigns.leadName')} className="px-3 py-2 border border-border rounded-xl text-sm bg-background outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input required type="email" value={newLead.email} onChange={(e) => setNewLead((p) => ({ ...p, email: e.target.value }))}
+                  placeholder={t('campaigns.leadEmail')} className="px-3 py-2 border border-border rounded-xl text-sm bg-background outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input value={newLead.organizationName} onChange={(e) => setNewLead((p) => ({ ...p, organizationName: e.target.value }))}
+                  placeholder={t('campaigns.leadCompany')} className="px-3 py-2 border border-border rounded-xl text-sm bg-background outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input value={newLead.phone} onChange={(e) => setNewLead((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder={t('campaigns.leadPhone')} className="px-3 py-2 border border-border rounded-xl text-sm bg-background outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="submit" disabled={savingLead}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition inline-flex items-center gap-2 disabled:opacity-50">
+                  {savingLead && <Loader2 className="w-4 h-4 animate-spin" />} {t('campaigns.saveLead')}
+                </button>
+                <button type="button" onClick={() => setShowAdd(null)} className="px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-muted transition">
+                  {t('campaigns.cancel')}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {showAdd === 'bulk' && (
+            <form onSubmit={importLeads} className="p-4 border-b border-border bg-background/50 space-y-3">
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                rows={6}
+                placeholder={t('campaigns.bulkPlaceholder')}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm font-mono bg-background outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              />
+              <p className="text-[11px] text-muted-foreground">{t('campaigns.bulkHint')}</p>
+              <div className="flex items-center gap-2">
+                <button type="submit" disabled={savingLead || !bulkText.trim()}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition inline-flex items-center gap-2 disabled:opacity-50">
+                  {savingLead && <Loader2 className="w-4 h-4 animate-spin" />} {t('campaigns.importAction')}
+                </button>
+                <button type="button" onClick={() => setShowAdd(null)} className="px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-muted transition">
+                  {t('campaigns.cancel')}
+                </button>
+              </div>
+            </form>
+          )}
           <div className="p-3 border-b border-border">
             <div className="relative">
               <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
@@ -238,8 +379,28 @@ export default function CampaignsPage() {
                         <p className="font-medium text-foreground">{lead.name}</p>
                         <p className="text-xs text-muted-foreground">{lead.email}</p>
                       </td>
-                      <td className="px-2 py-2.5 text-muted-foreground">{lead.organization?.name || '—'}</td>
-                      <td className="px-2 py-2.5 text-muted-foreground">{lead.role}</td>
+                      <td className="px-2 py-2.5 text-muted-foreground">{lead.organizationName || '—'}</td>
+                      <td className="px-2 py-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          {lead.source === 'ACCOUNT' ? (
+                            <span className="text-muted-foreground text-xs">{lead.role}</span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400">
+                              {t('campaigns.sourceProspect')}
+                            </span>
+                          )}
+                          {lead.kind === 'lead' && (
+                            <button
+                              type="button"
+                              title={t('campaigns.deleteLead')}
+                              onClick={(e) => { e.stopPropagation(); deleteLead(lead) }}
+                              className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

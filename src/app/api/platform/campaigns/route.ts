@@ -6,6 +6,7 @@ import { SUPER_DEVELOPER, DELETED } from '@/src/lib/roles'
 import { sendMail } from '@/src/lib/email'
 import { unsubscribeToken } from '@/src/lib/campaignToken'
 import { applyMergeFields } from '@/src/lib/mergeFields'
+import { splitRecipientKeys, normaliseEmail } from '@/src/lib/leads'
 import { logActivity } from '@/src/lib/activity'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -49,10 +50,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'subject, html and at least one recipient are required' }, { status: 400 })
     }
 
-    const leads = await prisma.user.findMany({
-      where: { id: { in: recipientIds }, role: { not: DELETED }, isActive: true, marketingOptOut: false },
-      select: { id: true, name: true, email: true, organization: { select: { name: true } } },
-    })
+    // Recipients arrive as prefixed keys so account holders and manually
+    // added prospects can be selected together without their ids colliding.
+    const { userIds, leadIds } = splitRecipientKeys(recipientIds)
+
+    const [accountLeads, manualLeads] = await Promise.all([
+      userIds.length
+        ? prisma.user.findMany({
+            where: { id: { in: userIds }, role: { not: DELETED }, isActive: true, marketingOptOut: false },
+            select: { id: true, name: true, email: true, organization: { select: { name: true } } },
+          })
+        : Promise.resolve([]),
+      leadIds.length
+        ? prisma.lead.findMany({
+            where: { id: { in: leadIds }, marketingOptOut: false },
+            select: { id: true, name: true, email: true, organizationName: true },
+          })
+        : Promise.resolve([]),
+    ])
+
+    const leads = [
+      ...accountLeads.map((u) => ({ name: u.name, email: u.email, orgName: u.organization?.name ?? null })),
+      ...manualLeads.map((l) => ({ name: l.name, email: l.email, orgName: l.organizationName })),
+    ]
 
     if (leads.length === 0) {
       return NextResponse.json({ error: 'None of the selected recipients are eligible (inactive or unsubscribed)' }, { status: 400 })
@@ -62,7 +82,7 @@ export async function POST(req: NextRequest) {
     // if somehow selected via two rows.
     const seen = new Set<string>()
     const uniqueLeads = leads.filter((l) => {
-      const key = l.email.toLowerCase()
+      const key = normaliseEmail(l.email)
       if (seen.has(key)) return false
       seen.add(key)
       return true
@@ -82,7 +102,7 @@ export async function POST(req: NextRequest) {
           create: uniqueLeads.map((l) => ({
             email: l.email,
             name: l.name,
-            orgName: l.organization?.name ?? null,
+            orgName: l.orgName,
           })),
         },
       },
