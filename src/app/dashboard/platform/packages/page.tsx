@@ -7,6 +7,7 @@ import { Plus, Loader2, Package as PackageIcon, Building2, Pencil, Trash2, X, Ch
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { FEATURES, FEATURE_GROUPS, FEATURE_KEYS } from '@/src/lib/features'
+import { BILLING_CYCLES } from '@/src/lib/billing'
 
 interface Pkg {
   id: string
@@ -23,7 +24,6 @@ interface Pkg {
   _count: { organizations: number }
 }
 
-const BILLING_CYCLES = ['MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME']
 
 const GROUPS = FEATURE_GROUPS
 

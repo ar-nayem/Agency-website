@@ -5,8 +5,8 @@ import { getEffectiveUser } from '@/src/lib/session'
 import { SUPER_DEVELOPER } from '@/src/lib/roles'
 import { logActivity } from '@/src/lib/activity'
 import { NextRequest, NextResponse } from 'next/server'
+import { PAYMENT_METHODS } from '@/src/lib/billing'
 
-export const PAYMENT_METHODS = ['BANK_TRANSFER', 'ALIPAY', 'WECHAT', 'CASH', 'OTHER'] as const
 
 export async function GET(req: NextRequest) {
   try {

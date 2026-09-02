@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Building2, CreditCard, X, CalendarClock, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
+import { PAYMENT_METHODS } from '@/src/lib/billing'
 
 interface Org {
   id: string
@@ -33,7 +34,6 @@ interface Payment {
   organization: { id: string; name: string }
 }
 
-const METHODS = ['BANK_TRANSFER', 'ALIPAY', 'WECHAT', 'CASH', 'OTHER']
 
 function toDateInput(d: Date) {
   // Local-date parts, not toISOString() — the latter shifts the day backwards
@@ -289,7 +289,7 @@ export default function BillingPage() {
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">{t('billing.method')}</label>
                   <select value={pay.method} onChange={(e) => setPay((p) => ({ ...p, method: e.target.value }))} className={inputClass}>
-                    {METHODS.map((m) => <option key={m} value={m}>{t(`billing.method${m}`)}</option>)}
+                    {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{t(`billing.method${m}`)}</option>)}
                   </select>
                 </div>
                 <div>

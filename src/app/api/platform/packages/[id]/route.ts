@@ -6,8 +6,8 @@ import { SUPER_DEVELOPER } from '@/src/lib/roles'
 import { FEATURE_KEYS } from '@/src/lib/features'
 import { logActivity } from '@/src/lib/activity'
 import { NextRequest, NextResponse } from 'next/server'
+import { BILLING_CYCLES } from '@/src/lib/billing'
 
-export const BILLING_CYCLES = ['MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'] as const
 
 function serializePackage(p: { features: string; [k: string]: unknown }) {
   let features: string[] = []
