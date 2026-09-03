@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2, XCircle, Clock, Eye } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, Clock, Eye, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
@@ -73,6 +73,9 @@ export default function CampaignDetailPage() {
 
   function statusIcon(status: string) {
     if (status === 'SENT') return <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+    // A bad address is a different problem from a broken send: it will never
+    // succeed on a retry, and the fix is to correct or remove the address.
+    if (status === 'INVALID') return <AlertTriangle className="w-4 h-4 text-amber-500" />
     if (status === 'FAILED') return <XCircle className="w-4 h-4 text-rose-500" />
     return <Clock className="w-4 h-4 text-amber-500" />
   }
@@ -143,6 +146,11 @@ export default function CampaignDetailPage() {
                     <div className="flex items-center gap-1.5 text-xs" title={r.error || undefined}>
                       {statusIcon(r.status)} {r.status}
                     </div>
+                    {r.error && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[260px] truncate" title={r.error}>
+                        {r.error}
+                      </p>
+                    )}
                   </td>
                   <td className="px-6 py-3">
                     {r.openedAt ? (

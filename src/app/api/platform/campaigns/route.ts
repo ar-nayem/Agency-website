@@ -185,17 +185,34 @@ async function sendCampaignInBackground(campaignId: string, subject: string, htm
       </p>
     `
 
-    try {
-      await sendMail(recipient.email, personalSubject, fullHtml)
+    // One-click unsubscribe. Gmail and Yahoo weight this heavily for bulk
+    // senders, and without it an unsubscribe can only happen by the reader
+    // marking the message as spam — which is what actually damages the
+    // sending reputation.
+    const headers = {
+      'List-Unsubscribe': `<${unsubscribeUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    }
+
+    const result = await sendMail(recipient.email, personalSubject, fullHtml, { headers })
+
+    if (result.ok) {
       await prisma.campaignRecipient.update({
         where: { id: recipient.id },
         data: { status: 'SENT', sentAt: new Date() },
       })
       sentCount++
-    } catch (error: any) {
+    } else {
+      // INVALID means the address itself is the problem (malformed, or the
+      // mail server refused that mailbox); FAILED means the send broke for
+      // some other reason and is worth retrying. Reporting both as "sent"
+      // is what made a bad address look delivered.
       await prisma.campaignRecipient.update({
         where: { id: recipient.id },
-        data: { status: 'FAILED', error: String(error?.message || error) },
+        data: {
+          status: result.invalid ? 'INVALID' : 'FAILED',
+          error: result.error || 'Send failed',
+        },
       })
       failedCount++
     }

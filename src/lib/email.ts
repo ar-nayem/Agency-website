@@ -75,12 +75,66 @@ export async function sendNotification(subject: string, html: string, organizati
   }
 }
 
+export interface SendResult {
+  ok: boolean
+  /** Why it failed, suitable for showing to the operator. */
+  error?: string
+  /** True when the address never left the building — malformed, or SMTP
+   *  refused that specific recipient. Distinct from a transport failure. */
+  invalid?: boolean
+  /** True when no SMTP credentials are configured, so nothing was attempted. */
+  skipped?: boolean
+}
+
+function looksLikeEmail(address: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.trim())
+}
+
+// A readable plain-text fallback built from the HTML. Sending HTML with no
+// text/plain part is one of the strongest spam signals there is, and some
+// clients show this instead of the HTML.
+export function htmlToText(html: string) {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    // Keep link targets visible, since a text-only reader loses the anchor.
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, '$2 ($1)')
+    .replace(/<\/(p|div|tr|h[1-6]|li)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&middot;/g, '·')
+    .replace(/&rarr;/g, '->')
+    .replace(/\n{3,}/g, '\n\n')
+    .split('\n').map((l) => l.trim()).join('\n')
+    .trim()
+}
+
 // Unlike sendNotification (fixed owner inbox), this sends to an arbitrary
 // recipient — used for account-holder-facing mail like password resets.
-export async function sendMail(to: string, subject: string, html: string) {
-  if (!emailConfigured) return
+//
+// Returns a result rather than throwing: existing callers (password reset,
+// trial welcome) ignore it and keep their previous fire-and-forget
+// behaviour, while the campaign sender can report accurately instead of
+// marking every address delivered. It previously swallowed every error,
+// which is why an unroutable address still reported success.
+export async function sendMail(
+  to: string,
+  subject: string,
+  html: string,
+  opts?: { headers?: Record<string, string>; replyTo?: string }
+): Promise<SendResult> {
+  // Address format is checked first: a malformed address is invalid whether
+  // or not SMTP happens to be configured, and reporting it as a server
+  // problem would send the operator looking in the wrong place.
+  if (!looksLikeEmail(to)) return { ok: false, invalid: true, error: 'Not a valid email address' }
+  if (!emailConfigured) return { ok: false, skipped: true, error: 'Email is not configured on this server' }
+
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       // All orgs currently send through this one shared mailbox (no
       // per-org SMTP yet), so the display name has to stay neutral rather
       // than naming any one tenant.
@@ -88,9 +142,30 @@ export async function sendMail(to: string, subject: string, html: string) {
       to,
       subject,
       html,
+      text: htmlToText(html),
+      replyTo: opts?.replyTo,
+      headers: opts?.headers,
     })
-  } catch (error) {
-    console.error('Email send failed:', error)
+
+    // SMTP can accept the message but refuse an individual recipient, which
+    // resolves rather than throwing — the case that made bad addresses look
+    // delivered.
+    const rejected = (info?.rejected || []) as string[]
+    if (rejected.length > 0) {
+      return { ok: false, invalid: true, error: `Mail server rejected ${rejected.join(', ')}` }
+    }
+    const accepted = (info?.accepted || []) as string[]
+    if (accepted.length === 0) {
+      return { ok: false, error: 'Mail server accepted no recipients' }
+    }
+
+    return { ok: true }
+  } catch (error: any) {
+    const message = String(error?.message || error)
+    // 5xx replies are permanent: a bad mailbox, not a transient outage.
+    const permanent = /\b5\d\d\b/.test(message) || /no such user|does not exist|invalid recipient|mailbox unavailable/i.test(message)
+    console.error('Email send failed:', message)
+    return { ok: false, invalid: permanent, error: message }
   }
 }
 
