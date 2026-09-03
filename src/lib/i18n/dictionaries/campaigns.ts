@@ -79,6 +79,14 @@ export const en = {
   clearFilters: 'Clear',
   showingCount: '{n} shown',
   emailedTimes: 'Emailed {n}× · last {date}',
+  recipientOpened: 'Opened',
+  openedOnce: 'Opened',
+  openedTimes: 'Opened {n}×',
+  notOpened: 'Not yet',
+  openTracking: 'Open tracking',
+  openedOf: '{opened} of {sent} delivered emails were opened',
+  openCaveat: 'A floor, not an exact figure. Apple Mail and Gmail pre-fetch images (counting as opens nobody made), and clients that block images record no open even when the email was read.',
+  sourceStudent: 'Student',
 }
 
 export const zh = {
@@ -162,4 +170,12 @@ export const zh = {
   clearFilters: '清除',
   showingCount: '显示 {n} 条',
   emailedTimes: '已发送 {n} 次 · 最近 {date}',
+  recipientOpened: '已打开',
+  openedOnce: '已打开',
+  openedTimes: '打开 {n} 次',
+  notOpened: '尚未打开',
+  openTracking: '打开追踪',
+  openedOf: '已送达 {sent} 封，其中 {opened} 封被打开',
+  openCaveat: '此为下限，并非精确数字。Apple Mail 与 Gmail 会预先抓取图片（会计为无人实际打开的“打开”），而屏蔽图片的客户端即使已读也不会记录。',
+  sourceStudent: '学生',
 }

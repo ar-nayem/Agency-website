@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, Clock, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 
@@ -17,6 +17,9 @@ interface Recipient {
   status: string
   error: string | null
   sentAt: string | null
+  openedAt: string | null
+  lastOpenedAt: string | null
+  openCount: number
 }
 
 interface CampaignDetail {
@@ -31,6 +34,7 @@ interface CampaignDetail {
   completedAt: string | null
   createdBy: { name: string }
   recipients: Recipient[]
+  stats?: { sent: number; opened: number; openRate: number }
 }
 
 export default function CampaignDetailPage() {
@@ -95,6 +99,27 @@ export default function CampaignDetailPage() {
         </p>
       </div>
 
+      {campaign.stats && campaign.stats.sent > 0 && (
+        <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Eye className="w-4 h-4 text-indigo-600" />
+            <h2 className="text-sm font-semibold text-foreground">{t('campaigns.openTracking')}</h2>
+          </div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-3xl font-bold text-foreground">{campaign.stats.openRate}%</span>
+            <span className="text-sm text-muted-foreground">
+              {t('campaigns.openedOf')
+                .replace('{opened}', String(campaign.stats.opened))
+                .replace('{sent}', String(campaign.stats.sent))}
+            </span>
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${Math.min(campaign.stats.openRate, 100)}%` }} />
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">{t('campaigns.openCaveat')}</p>
+        </div>
+      )}
+
       <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -103,6 +128,7 @@ export default function CampaignDetailPage() {
                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('campaigns.recipientEmail')}</th>
                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('campaigns.recipientOrg')}</th>
                 <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('campaigns.recipientStatus')}</th>
+                <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('campaigns.recipientOpened')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -117,6 +143,21 @@ export default function CampaignDetailPage() {
                     <div className="flex items-center gap-1.5 text-xs" title={r.error || undefined}>
                       {statusIcon(r.status)} {r.status}
                     </div>
+                  </td>
+                  <td className="px-6 py-3">
+                    {r.openedAt ? (
+                      <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                        <Eye className="w-3.5 h-3.5" />
+                        {r.openCount > 1
+                          ? t('campaigns.openedTimes').replace('{n}', String(r.openCount))
+                          : t('campaigns.openedOnce')}
+                        <span className="text-muted-foreground">· {formatDateTime(r.openedAt)}</span>
+                      </div>
+                    ) : r.status === 'SENT' ? (
+                      <span className="text-xs text-muted-foreground">{t('campaigns.notOpened')}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </td>
                 </tr>
               ))}

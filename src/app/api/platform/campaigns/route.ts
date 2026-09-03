@@ -52,9 +52,9 @@ export async function POST(req: NextRequest) {
 
     // Recipients arrive as prefixed keys so account holders and manually
     // added prospects can be selected together without their ids colliding.
-    const { userIds, leadIds } = splitRecipientKeys(recipientIds)
+    const { userIds, leadIds, studentIds } = splitRecipientKeys(recipientIds)
 
-    const [accountLeads, manualLeads] = await Promise.all([
+    const [accountLeads, manualLeads, studentLeads] = await Promise.all([
       userIds.length
         ? prisma.user.findMany({
             where: { id: { in: userIds }, role: { not: DELETED }, isActive: true, marketingOptOut: false },
@@ -67,11 +67,39 @@ export async function POST(req: NextRequest) {
             select: { id: true, name: true, email: true, organizationName: true },
           })
         : Promise.resolve([]),
+      studentIds.length
+        ? prisma.student.findMany({
+            where: { id: { in: studentIds } },
+            select: { id: true, fullName: true, mainEmail: true, organization: { select: { name: true } } },
+          })
+        : Promise.resolve([]),
     ])
+
+    // Students have no opt-out column of their own, so honour any unsubscribe
+    // already recorded against the same address on either of the other two
+    // lists — one person, one opt-out, whichever list they were reached on.
+    const studentEmails = studentLeads.map((st) => st.mainEmail)
+    const optedOut = studentEmails.length
+      ? new Set(
+          [
+            ...(await prisma.lead.findMany({
+              where: { email: { in: studentEmails.map((e) => e.toLowerCase()) }, marketingOptOut: true },
+              select: { email: true },
+            })).map((l) => l.email.toLowerCase()),
+            ...(await prisma.user.findMany({
+              where: { email: { in: studentEmails }, marketingOptOut: true },
+              select: { email: true },
+            })).map((u) => u.email.toLowerCase()),
+          ]
+        )
+      : new Set<string>()
 
     const leads = [
       ...accountLeads.map((u) => ({ name: u.name, email: u.email, orgName: u.organization?.name ?? null })),
       ...manualLeads.map((l) => ({ name: l.name, email: l.email, orgName: l.organizationName })),
+      ...studentLeads
+        .filter((st) => st.mainEmail && !optedOut.has(st.mainEmail.toLowerCase()))
+        .map((st) => ({ name: st.fullName, email: st.mainEmail, orgName: st.organization?.name ?? null })),
     ]
 
     if (leads.length === 0) {
@@ -132,8 +160,12 @@ async function sendCampaignInBackground(campaignId: string, subject: string, htm
     // included, since that's what decides whether the mail gets opened.
     const personalSubject = applyMergeFields(subject, recipient)
     const personalHtml = applyMergeFields(html, recipient)
+    // Appended last so a client that truncates a long message still renders
+    // the visible content first; the pixel is 1x1 and transparent.
+    const trackingPixel = `<img src="${origin}/api/public/track/${recipient.id}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;" />`
     const fullHtml = `
       ${personalHtml}
+      ${trackingPixel}
       <hr style="margin-top:32px;border:none;border-top:1px solid #e5e7eb" />
       <p style="font-size:11px;color:#9ca3af;margin-top:12px">
         You're receiving this because you have an account on this platform.

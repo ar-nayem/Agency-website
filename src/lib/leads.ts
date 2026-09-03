@@ -2,12 +2,12 @@
 // (User) and prospects the super developer added by hand (Lead). They are
 // merged into one shape for the campaigns UI so the composer doesn't care
 // which table a recipient came from.
-export type LeadSource = 'ACCOUNT' | 'MANUAL' | 'IMPORT'
+export type LeadSource = 'ACCOUNT' | 'MANUAL' | 'IMPORT' | 'STUDENT'
 
 export interface UnifiedLead {
   /** Prefixed so a User id and a Lead id can never collide in one selection. */
   id: string
-  kind: 'user' | 'lead'
+  kind: 'user' | 'lead' | 'student'
   rawId: string
   name: string
   email: string
@@ -31,16 +31,22 @@ export function leadKey(id: string) {
   return `lead:${id}`
 }
 
+export function studentKey(id: string) {
+  return `student:${id}`
+}
+
 // Splits the mixed selection the UI sends back into the two id lists the
 // send route needs.
 export function splitRecipientKeys(keys: string[]) {
   const userIds: string[] = []
   const leadIds: string[] = []
+  const studentIds: string[] = []
   for (const key of keys) {
     if (key.startsWith('user:')) userIds.push(key.slice(5))
     else if (key.startsWith('lead:')) leadIds.push(key.slice(5))
+    else if (key.startsWith('student:')) studentIds.push(key.slice(8))
   }
-  return { userIds, leadIds }
+  return { userIds, leadIds, studentIds }
 }
 
 export function normaliseEmail(email: string) {

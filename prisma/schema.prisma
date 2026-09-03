@@ -727,6 +727,15 @@ model CampaignRecipient {
   error      String?
   sentAt     DateTime?
 
+  // Open tracking via a 1x1 pixel. openCount can exceed 1 (re-opening, or a
+  // client re-fetching images) so firstOpenedAt is kept separately rather
+  // than being overwritten each time. Both stay null for anyone whose client
+  // blocks images, which is common — see the tracking route for why these
+  // numbers are a floor, never an exact readership figure.
+  openedAt   DateTime?
+  lastOpenedAt DateTime?
+  openCount  Int       @default(0)
+
   campaignId String
   campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 

@@ -13,13 +13,13 @@ import { RichTextEditor } from '@/src/components/RichTextEditor'
 
 interface Lead {
   id: string
-  kind: 'user' | 'lead'
+  kind: 'user' | 'lead' | 'student'
   rawId: string
   name: string
   email: string
   organizationName: string | null
   role: string | null
-  source: 'ACCOUNT' | 'MANUAL' | 'IMPORT'
+  source: 'ACCOUNT' | 'MANUAL' | 'IMPORT' | 'STUDENT'
   isActive: boolean
   marketingOptOut: boolean
   createdAt: string
@@ -226,7 +226,7 @@ export default function CampaignsPage() {
       }
       // Prospects have no account role, so they're their own bucket.
       if (roleFilter !== 'ALL') {
-        const bucket = l.source === 'ACCOUNT' ? l.role : 'PROSPECT'
+        const bucket = l.source === 'ACCOUNT' ? l.role : l.source === 'STUDENT' ? 'STUDENT' : 'PROSPECT'
         if (bucket !== roleFilter) return false
       }
       if (contactFilter === 'NEW' && l.timesContacted > 0) return false
@@ -238,7 +238,9 @@ export default function CampaignsPage() {
   // Only roles actually present, so the dropdown never offers an empty filter.
   const roleOptions = useMemo(() => {
     const set = new Set<string>()
-    for (const l of eligibleLeads) set.add(l.source === 'ACCOUNT' ? (l.role || 'UNKNOWN') : 'PROSPECT')
+    for (const l of eligibleLeads) {
+      set.add(l.source === 'ACCOUNT' ? (l.role || 'UNKNOWN') : l.source === 'STUDENT' ? 'STUDENT' : 'PROSPECT')
+    }
     return Array.from(set).sort()
   }, [eligibleLeads])
 
@@ -442,7 +444,9 @@ export default function CampaignsPage() {
               >
                 <option value="ALL">{t('campaigns.filterAllRoles')}</option>
                 {roleOptions.map((r) => (
-                  <option key={r} value={r}>{r === 'PROSPECT' ? t('campaigns.sourceProspect') : r}</option>
+                  <option key={r} value={r}>
+                    {r === 'PROSPECT' ? t('campaigns.sourceProspect') : r === 'STUDENT' ? t('campaigns.sourceStudent') : r}
+                  </option>
                 ))}
               </select>
               {(roleFilter !== 'ALL' || contactFilter !== 'ALL' || search) && (
@@ -500,6 +504,10 @@ export default function CampaignsPage() {
                         <div className="flex items-center justify-between gap-2">
                           {lead.source === 'ACCOUNT' ? (
                             <span className="text-muted-foreground text-xs">{lead.role}</span>
+                          ) : lead.source === 'STUDENT' ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400">
+                              {t('campaigns.sourceStudent')}
+                            </span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400">
                               {t('campaigns.sourceProspect')}

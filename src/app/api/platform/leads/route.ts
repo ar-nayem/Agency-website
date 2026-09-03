@@ -4,7 +4,7 @@ import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser } from '@/src/lib/session'
 import { SUPER_DEVELOPER, DELETED } from '@/src/lib/roles'
 import { logActivity } from '@/src/lib/activity'
-import { normaliseEmail, isValidEmail, parseLeadList, userKey, leadKey, type UnifiedLead } from '@/src/lib/leads'
+import { normaliseEmail, isValidEmail, parseLeadList, userKey, leadKey, studentKey, type UnifiedLead } from '@/src/lib/leads'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Two sources in one list: everyone with a portal account across every org,
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const [users, leads, sentRecipients] = await Promise.all([
+    const [users, leads, students, sentRecipients] = await Promise.all([
       prisma.user.findMany({
         where: { role: { not: DELETED } },
         select: {
@@ -27,6 +27,13 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
       }),
       prisma.lead.findMany({ orderBy: { createdAt: 'desc' } }),
+      // Students are applicants, not account holders — they have an email on
+      // their record but no login. Included so offers can reach them too.
+      prisma.student.findMany({
+        where: { mainEmail: { not: '' } },
+        select: { id: true, fullName: true, mainEmail: true, createdAt: true, organization: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
       // Only SENT counts as contacted — a failed or pending delivery means
       // the person never actually heard from us, and should stay in the
       // "not yet contacted" pool rather than being quietly skipped forever.
@@ -81,11 +88,48 @@ export async function GET(req: NextRequest) {
       lastContactedAt: historyFor(l.email).last,
     }))
 
+    const fromStudents: UnifiedLead[] = students
+      .filter((st) => isValidEmail(st.mainEmail))
+      .map((st) => ({
+        id: studentKey(st.id),
+        kind: 'student',
+        rawId: st.id,
+        name: st.fullName,
+        email: st.mainEmail,
+        organizationName: st.organization?.name ?? null,
+        role: null,
+        source: 'STUDENT',
+        // Students have no marketingOptOut column of their own; the shared
+        // unsubscribe list is checked at send time by address instead.
+        marketingOptOut: false,
+        isActive: true,
+        createdAt: st.createdAt,
+        timesContacted: historyFor(st.mainEmail).count,
+        lastContactedAt: historyFor(st.mainEmail).last,
+      }))
+
     // An address that already has an account is dropped from the manual side:
     // the account row carries more (role, org, active state), and keeping both
     // would let one person be selected twice and emailed twice.
     const accountEmails = new Set(users.map((u) => normaliseEmail(u.email)))
-    const merged = [...fromAccounts, ...fromManual.filter((l) => !accountEmails.has(normaliseEmail(l.email)))]
+    // Students sharing an address with an account or a prospect are dropped
+    // the same way, so one person can never be selected — and emailed — twice.
+    const claimed = new Set([
+      ...users.map((u) => normaliseEmail(u.email)),
+      ...leads.map((l) => normaliseEmail(l.email)),
+    ])
+    const seenStudent = new Set<string>()
+    const merged = [
+      ...fromAccounts,
+      ...fromManual.filter((l) => !accountEmails.has(normaliseEmail(l.email))),
+      ...fromStudents.filter((st) => {
+        const key = normaliseEmail(st.email)
+        // Siblings genuinely share an address sometimes; keep the first only.
+        if (claimed.has(key) || seenStudent.has(key)) return false
+        seenStudent.add(key)
+        return true
+      }),
+    ]
 
     return NextResponse.json(merged)
   } catch (error) {
