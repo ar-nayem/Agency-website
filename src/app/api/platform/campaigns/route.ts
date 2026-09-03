@@ -24,9 +24,21 @@ export async function GET(req: NextRequest) {
         totalCount: true, sentCount: true, failedCount: true,
         createdAt: true, completedAt: true,
         createdBy: { select: { name: true } },
+        // Counted here so the history list can show engagement at a glance
+        // rather than making the operator open each campaign to find out.
+        _count: { select: { recipients: { where: { openedAt: { not: null } } } } },
       },
     })
-    return NextResponse.json(campaigns)
+
+    return NextResponse.json(
+      campaigns.map((c) => ({
+        ...c,
+        openedCount: c._count.recipients,
+        // Measured against mail that actually went out; a failed send was
+        // never an opportunity to open.
+        openRate: c.sentCount > 0 ? Math.round((c._count.recipients / c.sentCount) * 1000) / 10 : 0,
+      }))
+    )
   } catch (error) {
     console.error('GET /api/platform/campaigns error:', error)
     return NextResponse.json({ error: 'Failed to load campaigns' }, { status: 500 })

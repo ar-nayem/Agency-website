@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock, Sparkles, Code2, Eye, PenLine, UserPlus, Upload, Trash2, X, FileSpreadsheet, Download } from 'lucide-react'
+import { Loader2, Search, Send, Users, Mail, CheckCircle2, XCircle, Clock, Sparkles, Code2, Eye, PenLine, UserPlus, Upload, Trash2, X, FileSpreadsheet, Download, BarChart3 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { MERGE_FIELDS, applyMergeFields } from '@/src/lib/mergeFields'
@@ -38,6 +38,8 @@ interface CampaignSummary {
   createdAt: string
   completedAt: string | null
   createdBy: { name: string }
+  openedCount?: number
+  openRate?: number
 }
 
 export default function CampaignsPage() {
@@ -665,12 +667,17 @@ export default function CampaignsPage() {
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('campaigns.status')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('campaigns.createdBy')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('campaigns.createdAt')}</th>
-                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider"></th>
+                  <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('campaigns.recipientOpened')}</th>
+                  <th className="px-6 py-3.5 text-right text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {campaigns.map((c) => (
-                  <tr key={c.id} className="hover:bg-muted/60 transition-colors">
+                  <tr
+                    key={c.id}
+                    onClick={() => router.push(`/dashboard/platform/campaigns/${c.id}`)}
+                    className="hover:bg-muted/60 transition-colors cursor-pointer"
+                  >
                     <td className="px-6 py-4 text-sm font-medium text-foreground">{c.subject}</td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">
                       {t('campaigns.progress').replace('{sent}', String(c.sentCount)).replace('{failed}', String(c.failedCount)).replace('{total}', String(c.totalCount))}
@@ -678,9 +685,26 @@ export default function CampaignsPage() {
                     <td className="px-6 py-4">{statusBadge(c.status)}</td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{c.createdBy?.name}</td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{formatDateTime(c.createdAt)}</td>
+                    <td className="px-6 py-4">
+                      {c.sentCount > 0 ? (
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <Eye className={`w-3.5 h-3.5 ${(c.openedCount ?? 0) > 0 ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                          <span className={(c.openedCount ?? 0) > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}>
+                            {c.openedCount ?? 0}
+                          </span>
+                          <span className="text-xs text-muted-foreground">({c.openRate ?? 0}%)</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right">
-                      <Link href={`/dashboard/platform/campaigns/${c.id}`} className="text-xs text-indigo-600 hover:underline">
-                        {t('campaigns.viewDetails')}
+                      <Link
+                        href={`/dashboard/platform/campaigns/${c.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2.5 py-1 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted transition inline-flex items-center gap-1.5"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5" /> {t('campaigns.viewDetails')}
                       </Link>
                     </td>
                   </tr>
