@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const [users, leads] = await Promise.all([
+    const [users, leads, sentRecipients] = await Promise.all([
       prisma.user.findMany({
         where: { role: { not: DELETED } },
         select: {
@@ -27,7 +27,27 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
       }),
       prisma.lead.findMany({ orderBy: { createdAt: 'desc' } }),
+      // Only SENT counts as contacted — a failed or pending delivery means
+      // the person never actually heard from us, and should stay in the
+      // "not yet contacted" pool rather than being quietly skipped forever.
+      prisma.campaignRecipient.findMany({
+        where: { status: 'SENT' },
+        select: { email: true, sentAt: true },
+      }),
     ])
+
+    // Keyed on the lowercased address so it matches regardless of how the
+    // address was capitalised when the campaign was sent.
+    const contact = new Map<string, { count: number; last: Date | null }>()
+    for (const r of sentRecipients) {
+      const key = normaliseEmail(r.email)
+      const prev = contact.get(key) || { count: 0, last: null }
+      contact.set(key, {
+        count: prev.count + 1,
+        last: !prev.last || (r.sentAt && r.sentAt > prev.last) ? r.sentAt ?? prev.last : prev.last,
+      })
+    }
+    const historyFor = (email: string) => contact.get(normaliseEmail(email)) || { count: 0, last: null }
 
     const fromAccounts: UnifiedLead[] = users.map((u) => ({
       id: userKey(u.id),
@@ -41,6 +61,8 @@ export async function GET(req: NextRequest) {
       marketingOptOut: u.marketingOptOut,
       isActive: u.isActive,
       createdAt: u.createdAt,
+      timesContacted: historyFor(u.email).count,
+      lastContactedAt: historyFor(u.email).last,
     }))
 
     const fromManual: UnifiedLead[] = leads.map((l) => ({
@@ -55,6 +77,8 @@ export async function GET(req: NextRequest) {
       marketingOptOut: l.marketingOptOut,
       isActive: true,
       createdAt: l.createdAt,
+      timesContacted: historyFor(l.email).count,
+      lastContactedAt: historyFor(l.email).last,
     }))
 
     // An address that already has an account is dropped from the manual side:

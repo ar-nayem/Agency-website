@@ -72,6 +72,13 @@ export const en = {
   chooseFile: 'Choose file',
   downloadTemplate: 'Template',
   orPaste: 'or paste a list',
+  filterAllContact: 'Everyone',
+  filterNeverEmailed: 'Never emailed',
+  filterAlreadyEmailed: 'Already emailed',
+  filterAllRoles: 'All roles',
+  clearFilters: 'Clear',
+  showingCount: '{n} shown',
+  emailedTimes: 'Emailed {n}× · last {date}',
 }
 
 export const zh = {
@@ -148,4 +155,11 @@ export const zh = {
   chooseFile: '选择文件',
   downloadTemplate: '模板',
   orPaste: '或粘贴列表',
+  filterAllContact: '全部',
+  filterNeverEmailed: '从未发送',
+  filterAlreadyEmailed: '已发送',
+  filterAllRoles: '全部角色',
+  clearFilters: '清除',
+  showingCount: '显示 {n} 条',
+  emailedTimes: '已发送 {n} 次 · 最近 {date}',
 }

@@ -17,6 +17,10 @@ export interface UnifiedLead {
   marketingOptOut: boolean
   isActive: boolean
   createdAt: Date | string
+  /** How many campaigns have actually reached this address (status SENT). */
+  timesContacted: number
+  /** When the most recent one went out, or null if never contacted. */
+  lastContactedAt: Date | string | null
 }
 
 export function userKey(id: string) {

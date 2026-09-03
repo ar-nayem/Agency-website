@@ -23,6 +23,8 @@ interface Lead {
   isActive: boolean
   marketingOptOut: boolean
   createdAt: string
+  timesContacted: number
+  lastContactedAt: string | null
 }
 
 interface CampaignSummary {
@@ -47,6 +49,8 @@ export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('ALL')
+  const [contactFilter, setContactFilter] = useState<'ALL' | 'NEW' | 'CONTACTED'>('ALL')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
@@ -212,14 +216,31 @@ export default function CampaignsPage() {
 
   const filteredLeads = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return eligibleLeads
-    return eligibleLeads.filter(
-      (l) =>
-        l.name.toLowerCase().includes(q) ||
-        l.email.toLowerCase().includes(q) ||
-        (l.organizationName || '').toLowerCase().includes(q)
-    )
-  }, [eligibleLeads, search])
+    return eligibleLeads.filter((l) => {
+      if (q) {
+        const hit =
+          l.name.toLowerCase().includes(q) ||
+          l.email.toLowerCase().includes(q) ||
+          (l.organizationName || '').toLowerCase().includes(q)
+        if (!hit) return false
+      }
+      // Prospects have no account role, so they're their own bucket.
+      if (roleFilter !== 'ALL') {
+        const bucket = l.source === 'ACCOUNT' ? l.role : 'PROSPECT'
+        if (bucket !== roleFilter) return false
+      }
+      if (contactFilter === 'NEW' && l.timesContacted > 0) return false
+      if (contactFilter === 'CONTACTED' && l.timesContacted === 0) return false
+      return true
+    })
+  }, [eligibleLeads, search, roleFilter, contactFilter])
+
+  // Only roles actually present, so the dropdown never offers an empty filter.
+  const roleOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const l of eligibleLeads) set.add(l.source === 'ACCOUNT' ? (l.role || 'UNKNOWN') : 'PROSPECT')
+    return Array.from(set).sort()
+  }, [eligibleLeads])
 
   const allFilteredSelected = filteredLeads.length > 0 && filteredLeads.every((l) => selected.has(l.id))
 
@@ -404,6 +425,39 @@ export default function CampaignsPage() {
                 className="w-full pl-9 pr-3 py-2 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-background"
               />
             </div>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <select
+                value={contactFilter}
+                onChange={(e) => setContactFilter(e.target.value as 'ALL' | 'NEW' | 'CONTACTED')}
+                className="px-2.5 py-1.5 border border-border rounded-lg text-xs bg-background outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="ALL">{t('campaigns.filterAllContact')}</option>
+                <option value="NEW">{t('campaigns.filterNeverEmailed')}</option>
+                <option value="CONTACTED">{t('campaigns.filterAlreadyEmailed')}</option>
+              </select>
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="px-2.5 py-1.5 border border-border rounded-lg text-xs bg-background outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="ALL">{t('campaigns.filterAllRoles')}</option>
+                {roleOptions.map((r) => (
+                  <option key={r} value={r}>{r === 'PROSPECT' ? t('campaigns.sourceProspect') : r}</option>
+                ))}
+              </select>
+              {(roleFilter !== 'ALL' || contactFilter !== 'ALL' || search) && (
+                <button
+                  type="button"
+                  onClick={() => { setRoleFilter('ALL'); setContactFilter('ALL'); setSearch('') }}
+                  className="px-2 py-1 rounded-lg text-xs text-muted-foreground hover:bg-muted transition inline-flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> {t('campaigns.clearFilters')}
+                </button>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto">
+                {t('campaigns.showingCount').replace('{n}', String(filteredLeads.length))}
+              </span>
+            </div>
           </div>
           <div className="overflow-y-auto max-h-[480px]">
             {filteredLeads.length === 0 ? (
@@ -433,6 +487,13 @@ export default function CampaignsPage() {
                       <td className="px-2 py-2.5">
                         <p className="font-medium text-foreground">{lead.name}</p>
                         <p className="text-xs text-muted-foreground">{lead.email}</p>
+                        {lead.timesContacted > 0 && (
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            {t('campaigns.emailedTimes')
+                              .replace('{n}', String(lead.timesContacted))
+                              .replace('{date}', lead.lastContactedAt ? formatDateTime(lead.lastContactedAt) : '')}
+                          </p>
+                        )}
                       </td>
                       <td className="px-2 py-2.5 text-muted-foreground">{lead.organizationName || '—'}</td>
                       <td className="px-2 py-2.5">
